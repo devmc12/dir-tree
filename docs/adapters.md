@@ -1,7 +1,6 @@
 # Adapters
 
-Adapters turn different source types into the shared `FileNode` tree used by
-`dir-tree`.
+Adapters turn different source types into the shared `FileNode` tree used by `dir-tree`.
 
 ```ts
 import { FileSystemReader } from '@devmc12/dir-tree';
@@ -20,8 +19,7 @@ interface IFileSystemAdapter {
 }
 ```
 
-Host applications can implement this interface for custom sources, such as a
-database, an internal API, a virtual file system, or a cached tree snapshot.
+Host applications can implement this interface for custom sources, such as a database, an internal API, a virtual file system, or a cached tree snapshot.
 
 ## Read Options
 
@@ -40,9 +38,7 @@ interface ReadOptions {
 }
 ```
 
-Some options are environment-specific. For example, `mode` applies to native
-browser directory handles, while `token` belongs to remote repository adapter
-options rather than `ReadOptions`.
+Some options are environment-specific. For example, `mode` applies to native browser directory handles, while `token` belongs to remote repository adapter options rather than `ReadOptions`.
 
 ## In-memory Adapter
 
@@ -66,9 +62,7 @@ const tree = await reader.read();
 
 ## Node.js Filesystem Adapter
 
-Use `NodeFileSystemAdapter` from `@devmc12/dir-tree/node` to read a real directory path
-from disk in Node.js. This adapter is exported from a Node-only entry so browser
-bundles can keep `node:fs` out of client code.
+Use `NodeFileSystemAdapter` from `@devmc12/dir-tree/node` to read a real directory path from disk in Node.js. This adapter is exported from a Node-only entry so browser bundles can keep `node:fs` out of client code.
 
 ```ts
 import { FileSystemReader } from '@devmc12/dir-tree';
@@ -84,8 +78,7 @@ const tree = await new FileSystemReader(
 
 ## Local Browser Directory Adapter
 
-Use `LocalFileSystemAdapter` with a `FileSystemDirectoryHandle`. This adapter is
-browser-only and requires the File System Access API.
+Use `LocalFileSystemAdapter` with a `FileSystemDirectoryHandle`. This adapter is browser-only and requires the File System Access API.
 
 ```ts
 import { FileSystemReader, LocalFileSystemAdapter } from '@devmc12/dir-tree';
@@ -103,8 +96,7 @@ const tree = await new FileSystemReader(
 
 ## Legacy Directory Files Adapter
 
-Use `LegacyDirectoryFilesAdapter` with files returned by an `<input
-webkitdirectory>` picker.
+Use `LegacyDirectoryFilesAdapter` with files returned by an `<input webkitdirectory>` picker.
 
 ```ts
 import {
@@ -121,8 +113,7 @@ const tree = await new FileSystemReader(
 
 ## Dropped Directory Entry Adapter
 
-Use `DroppedDirectoryEntryAdapter` when browser drag-and-drop provides a legacy
-directory entry.
+Use `DroppedDirectoryEntryAdapter` when browser drag-and-drop provides a legacy directory entry.
 
 ```ts
 import {
@@ -144,13 +135,11 @@ if (resolution.status === 'success' && resolution.source.kind === 'directory') {
 }
 ```
 
-If a dropped source returns a native `FileSystemDirectoryHandle`, use
-`LocalFileSystemAdapter` instead.
+If a dropped source returns a native `FileSystemDirectoryHandle`, use `LocalFileSystemAdapter` instead.
 
 ## ZIP Adapter
 
-Use `ZipFileSystemAdapter` for ZIP archives. The source can be a `Blob`,
-`ArrayBuffer`, or `Uint8Array`.
+Use `ZipFileSystemAdapter` for ZIP archives. The source can be a `Blob`, `ArrayBuffer`, or `Uint8Array`.
 
 ```ts
 import { FileSystemReader, ZipFileSystemAdapter } from '@devmc12/dir-tree';
@@ -160,8 +149,7 @@ const tree = await new FileSystemReader(
 ).read({ showHidden: false });
 ```
 
-ZIP support is powered by `fflate`, which is the only runtime dependency of the
-root package.
+ZIP support is powered by `fflate`, which is the only runtime dependency of the root package.
 
 ## Remote Repository Adapter
 
@@ -196,8 +184,7 @@ interface RemoteRepositoryAdapterOptions {
 }
 ```
 
-Use `apiClient` to integrate self-hosted providers, tests, or server-side
-fetching policies.
+Use `apiClient` to integrate self-hosted providers, tests, or server-side fetching policies.
 
 ```ts
 import {
@@ -236,9 +223,7 @@ Remote helper exports from `@devmc12/dir-tree/adapters` include:
 - `splitRemoteRepositoryPath`
 - `RemoteRepositoryError`
 
-`RemoteRepositoryError` exposes `code`, `provider`, and `status`. Rate-limit
-responses also include `rateLimitRemaining` and `rateLimitReset` when the
-provider sends those headers.
+`RemoteRepositoryError` exposes `code`, `provider`, and `status`. Rate-limit responses also include `rateLimitRemaining` and `rateLimitReset` when the provider sends those headers.
 
 ## Environment Notes
 

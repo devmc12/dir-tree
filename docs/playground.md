@@ -1,11 +1,8 @@
 # Playground
 
-`playground/` is the repository's Vite React reference implementation for the
-headless `dir-tree` package.
+`playground/` is the repository's Vite React reference implementation for the headless `dir-tree` package.
 
-It is not published to npm and is not a separate React package. It exists to
-show a complete browser Reader workflow, validate real source/read/render
-flows, and keep UI code outside the headless package.
+It is not published to npm and is not a separate React package. It exists to show a complete browser Reader workflow, validate real source/read/render flows, and keep UI code outside the headless package.
 
 ## Run
 
@@ -33,11 +30,7 @@ npm run build
 
 ## Scope
 
-The playground is a PC-oriented full-screen ReaderView, not a minimal demo. It
-uses React + Vite, local `useReducer` + Context state, CSS Modules, global design
-tokens, and a small icon dependency. It does not use Tailwind, SCSS,
-shadcn/radix, Zustand, Next.js, routes, backend services, analytics, or toast
-services.
+The playground is a PC-oriented full-screen ReaderView, not a minimal demo. It uses React + Vite, local `useReducer` + Context state, CSS Modules, global design tokens, and a small icon dependency. It does not use Tailwind, SCSS, shadcn/radix, Zustand, Next.js, routes, backend services, analytics, or toast services.
 
 It demonstrates:
 
@@ -49,19 +42,12 @@ It demonstrates:
 - tree create, rename, remove, visibility, expansion, and collapse behavior
 - manual tree-row annotations with inline add/edit/delete controls
 - annotations rendered into ASCII output and JSON export
-- read options for depth, exclude patterns, hidden files, gitignore, metadata,
-  sorting, and folders-first behavior
-- ASCII render options for connector style, line numbers, directory slash, file
-  size, and modified time
+- read options for depth, exclude patterns, hidden files, gitignore, metadata, sorting, and folders-first behavior
+- ASCII render options for connector style, line numbers, directory slash, file size, and modified time
 - copy and download flows for ASCII text, Markdown, and JSON
 - English and Chinese UI dictionaries
 
-The playground intentionally does not include AI annotation, mock providers,
-annotation provider diff review, edited ASCII annotation diff review, ASCII edit
-mode, focus mode, mobile drawers, tablet sheets, complex multi-select, context
-menus, or drag sorting. Those product-level experiences belong in host
-applications such as `dir-tree-web`, not in the lightweight reference
-implementation.
+The playground intentionally does not include AI annotation, mock providers, annotation provider diff review, edited ASCII annotation diff review, ASCII edit mode, focus mode, mobile drawers, tablet sheets, complex multi-select, context menus, or drag sorting. Those product-level experiences belong in host applications such as `dir-tree-web`, not in the lightweight reference implementation.
 
 Current source organization:
 
@@ -75,8 +61,7 @@ Current source organization:
 - `src/fixtures.ts`: playground-only sample data and render options
 - `src/i18n/en.ts` and `src/i18n/zh.ts`: the only supported UI dictionaries
 
-As the Reader experience evolves, keep product-only behavior in `playground/`
-and keep reusable, UI-free behavior in root `src/` public modules.
+As the Reader experience evolves, keep product-only behavior in `playground/` and keep reusable, UI-free behavior in root `src/` public modules.
 
 ## i18n
 
@@ -85,16 +70,13 @@ The playground supports only:
 - `en`
 - `zh`
 
-Dictionaries live in `playground/src/i18n`. They are not part of the npm
-package.
+Dictionaries live in `playground/src/i18n`. They are not part of the npm package.
 
-Core APIs must not return UI copy. They can return data, status, errors, and
-typed results that the playground translates.
+Core APIs must not return UI copy. They can return data, status, errors, and typed results that the playground translates.
 
 ## Consuming Core
 
-Playground code should import public package entry points exactly like a
-consumer would:
+Playground code should import public package entry points exactly like a consumer would:
 
 ```ts
 import { FileSystemReader } from '@devmc12/dir-tree';
@@ -114,9 +96,7 @@ Local Vite and TypeScript config map those public imports to root source files:
 @devmc12/dir-tree/tree -> ../src/tree/index.ts
 ```
 
-Do not add `dir-tree: "file:.."` to `playground/package.json`. That creates a
-self-referential dependency in local development and can produce recursive
-`node_modules` paths on Windows.
+Do not add `dir-tree: "file:.."` to `playground/package.json`. That creates a self-referential dependency in local development and can produce recursive `node_modules` paths on Windows.
 
 Do not import root internals directly from playground:
 
@@ -125,9 +105,7 @@ Do not import root internals directly from playground:
 import { something } from '../../src/tree/internal';
 ```
 
-If the playground needs reusable, UI-free behavior, first decide whether it
-belongs in the public `@devmc12/dir-tree` package. If it does, export it from root or a
-domain subpath, then import it through `dir-tree`.
+If the playground needs reusable, UI-free behavior, first decide whether it belongs in the public `@devmc12/dir-tree` package. If it does, export it from root or a domain subpath, then import it through `dir-tree`.
 
 ## Boundary Rules
 
@@ -160,8 +138,7 @@ npm --prefix playground run typecheck
 npm run build:playground
 ```
 
-The full repository verification also runs core checks and package boundary
-checks:
+The full repository verification also runs core checks and package boundary checks:
 
 ```bash
 npm run lint

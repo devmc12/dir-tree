@@ -1,31 +1,37 @@
+<!-- prettier-ignore-start -->
+
+<div align="center">
+
 # Dir Tree
+
+### 面向浏览器与 Node.js 应用的 Headless 目录树工具集
+
+[![npm version](https://img.shields.io/npm/v/@devmc12/dir-tree.svg)](https://www.npmjs.com/package/@devmc12/dir-tree)
+[![npm downloads](https://img.shields.io/npm/dm/@devmc12/dir-tree.svg)](https://www.npmjs.com/package/@devmc12/dir-tree)
+[![License](https://img.shields.io/npm/l/@devmc12/dir-tree.svg)](./LICENSE)
+[![Node.js](https://img.shields.io/node/v/@devmc12/dir-tree.svg)](./package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-ready-3178c6.svg)](https://www.typescriptlang.org/)
 
 [English](./README.md) | **简体中文**
 
-> 无界面（headless）的目录树读取、解析、渲染、编辑与注释工具集。
+</div>
 
-`dir-tree` 能把本地目录、ZIP 包、GitHub/GitLab 仓库、粘贴的树文本或内存数据，
-转换为稳定的 `FileNode` 树，并支持将其渲染为 ASCII、编辑、注释和导出。核心是
-纯函数且与运行时无关，同一套逻辑在 Node.js 和浏览器中都能运行，且不带任何 UI 依赖。
+<!-- prettier-ignore-end -->
 
-本包是 [dir-tree.com](https://dir-tree.com/) 的 headless 版本，可在该站点体验完整应用。
+`dir-tree` 能把本地目录、ZIP 包、GitHub/GitLab 仓库、粘贴的树文本或内存数据，转换为稳定的 `FileNode` 树，并支持将其渲染为 ASCII、编辑、注释和导出。核心是纯函数且与运行时无关，同一套逻辑在 Node.js 和浏览器中都能运行，且不带任何 UI 依赖。
+
+> 本包是 [dir-tree.com](https://dir-tree.com/) 的 headless 版本，可在该站点体验完整应用。
 
 ![Dir Tree Overview](https://dir-tree.com/images/share/dir-tree-overview.png)
 
 ## 特性
 
-- **多种数据源** —— 通过统一的适配器接口读取本地目录、ZIP 包、GitHub/GitLab
-  仓库、导入文本或内存树
-- **可配置的 ASCII 渲染** —— 连接符风格、缩进、行号、完整路径，以及文件大小 /
-  修改时间元数据
-- **纯函数式树编辑** —— 创建、重命名、移动、删除、聚焦、可见性与展开等操作返回
-  新树，不修改你的状态
-- **导入与导出** —— 解析 JSON、XML、HTML、Markdown 或 ASCII 树文本，并导出回
-  JSON 或 ASCII
-- **注释** —— 与具体 provider 无关的请求 / diff / patch 辅助函数,支持逐节点注释；
-  AI 或手动流程自行接入
-- **同构且模块化** —— 支持 tree-shaking 的子路径导出，提供 ESM、CommonJS 与类型
-  声明，可在 Node.js 与浏览器中运行
+- **多种数据源** —— 通过统一的适配器接口读取本地目录、ZIP 包、GitHub/GitLab 仓库、导入文本或内存树
+- **可配置的 ASCII 渲染** —— 连接符风格、缩进、行号、完整路径，以及文件大小 / 修改时间元数据
+- **纯函数式树编辑** —— 创建、重命名、移动、删除、聚焦、可见性与展开等操作返回新树，不修改你的状态
+- **导入与导出** —— 解析 JSON、XML、HTML、Markdown 或 ASCII 树文本，并导出回 JSON 或 ASCII
+- **注释** —— 与具体 provider 无关的请求 / diff / patch 辅助函数，支持逐节点注释；AI 或手动流程自行接入
+- **同构且模块化** —— 支持 tree-shaking 的子路径导出，提供 ESM、CommonJS 与类型声明，可在 Node.js 与浏览器中运行
 
 ## 安装
 
@@ -37,8 +43,7 @@ npm install @devmc12/dir-tree
 
 - Node.js `>=18.18`
 - TypeScript 用户可直接从包中导入类型
-- 核心与大部分适配器是同构的。Node.js 文件系统读取从 `@devmc12/dir-tree/node` 导出，
-  浏览器专用 API 从 `@devmc12/dir-tree/browser` 导出
+- 核心与大部分适配器是同构的。Node.js 文件系统读取从 `@devmc12/dir-tree/node` 导出，浏览器专用 API 从 `@devmc12/dir-tree/browser` 导出
 
 ## 快速开始
 
@@ -98,9 +103,7 @@ const tree = await new FileSystemReader(
 
 ### Node.js 目录路径
 
-使用 `@devmc12/dir-tree/node` 的 `NodeFileSystemAdapter` 可以在 Node.js 中读取磁盘上的
-目录路径。它遵循同样的 `depth`、`exclude`、`useGitignore`、`readFileMeta` 与
-`sort` 选项，并与浏览器入口隔离，打包器不会把 `node:fs` 带入客户端构建。
+使用 `@devmc12/dir-tree/node` 的 `NodeFileSystemAdapter` 可以在 Node.js 中读取磁盘上的目录路径。它遵循同样的 `depth`、`exclude`、`useGitignore`、`readFileMeta` 与 `sort` 选项，并与浏览器入口隔离，打包器不会把 `node:fs` 带入客户端构建。
 
 ```ts
 import { FileSystemReader } from '@devmc12/dir-tree';
@@ -119,8 +122,7 @@ console.log(renderAsciiTree(tree));
 
 ### 浏览器目录选择器
 
-先用浏览器辅助函数检测目录选择器支持情况，再用 `LocalFileSystemAdapter`
-读取。该能力仅限浏览器环境。
+先用浏览器辅助函数检测目录选择器支持情况，再用 `LocalFileSystemAdapter` 读取。该能力仅限浏览器环境。
 
 ```ts
 import { FileSystemReader, LocalFileSystemAdapter } from '@devmc12/dir-tree';
@@ -136,9 +138,7 @@ const tree = await new FileSystemReader(
 ).read({ readFileMeta: true, useGitignore: true });
 ```
 
-对于不支持原生目录选择器、但支持传统 `webkitdirectory` 选择器的浏览器，可使用
-`@devmc12/dir-tree/browser` 中的 `openLegacyDirectoryPicker` 和
-`createLegacyDirectorySkipMatcher`，将排除规则下沉到目录遍历中。
+对于不支持原生目录选择器、但支持传统 `webkitdirectory` 选择器的浏览器，可使用 `@devmc12/dir-tree/browser` 中的 `openLegacyDirectoryPicker` 和 `createLegacyDirectorySkipMatcher`，将排除规则下沉到目录遍历中。
 
 ```ts
 import {
@@ -178,8 +178,7 @@ const tree = await new FileSystemReader(
 
 ### 远程仓库
 
-`RemoteRepositoryFileSystemAdapter` 用于读取 GitHub 或 GitLab 仓库树。当平台
-需要鉴权时传入 token，或注入自定义 API client 以便测试和自托管集成。
+`RemoteRepositoryFileSystemAdapter` 用于读取 GitHub 或 GitLab 仓库树。当平台需要鉴权时传入 token，或注入自定义 API client 以便测试和自托管集成。
 
 ```ts
 import {
@@ -195,9 +194,7 @@ const tree = await new FileSystemReader(
 ).read({ depth: 4 });
 ```
 
-远程仓库辅助函数从 `@devmc12/dir-tree/adapters` 导出，包括 URL 解析、ref/路径解析、
-分支解析、平台条目映射，以及 fetch client 创建。需要先加载默认分支与分支列表
-（例如填充分支下拉框）时，使用 `resolveRemoteRepositoryBranches`。
+远程仓库辅助函数从 `@devmc12/dir-tree/adapters` 导出，包括 URL 解析、ref/路径解析、分支解析、平台条目映射，以及 fetch client 创建。需要先加载默认分支与分支列表（例如填充分支下拉框）时，使用 `resolveRemoteRepositoryBranches`。
 
 ```ts
 import { resolveRemoteRepositoryBranches } from '@devmc12/dir-tree/adapters';
@@ -211,8 +208,7 @@ const { branches, defaultBranch, ref, path } =
 
 ## 解析与渲染
 
-把导入的 JSON、XML、HTML、Markdown 列表、Markdown 文档或 ASCII 树文本解析为
-`FileNode` 树，再渲染回 ASCII。
+把导入的 JSON、XML、HTML、Markdown 列表、Markdown 文档或 ASCII 树文本解析为 `FileNode` 树，再渲染回 ASCII。
 
 ```ts
 import { parseImportedTreeText } from '@devmc12/dir-tree/parser';
@@ -270,8 +266,7 @@ const restored = parseImportedFileTreeJson(json);
 
 ## 注释 Provider 边界
 
-本包不调用任何 AI 服务。它只定义 provider 请求载荷、provider 结果、补丁
-归一化与 diff 工具。模型调用、token、配额、存储、分析和通知都由你的应用负责。
+本包不调用任何 AI 服务。它只定义 provider 请求载荷、provider 结果、补丁归一化与 diff 工具。模型调用、token、配额、存储、分析和通知都由你的应用负责。
 
 ```ts
 import {
@@ -345,17 +340,14 @@ dir-tree/src
 
 ## Playground
 
-GitHub 仓库包含 `playground/`，是一个简单的 Vite React 示例，通过本地 Vite 与
-TypeScript 别名演示公开的 `dir-tree` 导入。它只是一个最小参考实现，并不完整。
-完整的应用请见 [dir-tree.com](https://dir-tree.com/)。
+GitHub 仓库包含 `playground/`，是一个简单的 Vite React 示例，通过本地 Vite 与 TypeScript 别名演示公开的 `dir-tree` 导入。它只是一个最小参考实现，并不完整。完整的应用请见 [dir-tree.com](https://dir-tree.com/)。
 
 ```bash
 npm run dev:playground
 npm run build:playground
 ```
 
-Node.js 示例(无浏览器)见 `playground-node/`，演示 `NodeFileSystemAdapter`、
-解析、注释、树编辑与 JSON 传输：
+Node.js 示例(无浏览器)见 `playground-node/`，演示 `NodeFileSystemAdapter`、解析、注释、树编辑与 JSON 传输：
 
 ```bash
 npm run start:playground-node
@@ -383,5 +375,4 @@ npm --prefix playground run typecheck
 npm run build:playground
 ```
 
-`npm run smoke:install` 会打包本地包，将 tarball 安装到一个临时的消费者项目中，
-并验证 ESM、CommonJS 与 TypeScript 消费者导入。
+`npm run smoke:install` 会打包本地包，将 tarball 安装到一个临时的消费者项目中，并验证 ESM、CommonJS 与 TypeScript 消费者导入。

@@ -1,11 +1,8 @@
 # Annotations
 
-`dir-tree` provides headless annotation utilities for directory trees. It can
-render annotations into ASCII output, parse edited annotations back from ASCII,
-normalize provider results, compute diffs, and apply accepted patches.
+`dir-tree` provides headless annotation utilities for directory trees. It can render annotations into ASCII output, parse edited annotations back from ASCII, normalize provider results, compute diffs, and apply accepted patches.
 
-The package does not call AI providers. Applications own model requests, tokens,
-quotas, storage, analytics, and notifications.
+The package does not call AI providers. Applications own model requests, tokens, quotas, storage, analytics, and notifications.
 
 ## Data Model
 
@@ -31,15 +28,11 @@ interface TreeAnnotationPatch {
 }
 ```
 
-Patches are intentionally small. They represent a requested comment change for
-one path. The patch utilities fill default `source`, `syncStatus`, and
-`updatedAt` values when applying patches.
+Patches are intentionally small. They represent a requested comment change for one path. The patch utilities fill default `source`, `syncStatus`, and `updatedAt` values when applying patches.
 
 ## Provider Boundary
 
-Use `AnnotationProvider` as an application boundary. The provider receives a
-plain payload and returns patches. It can call OpenAI, Ollama, an internal API,
-a local rules engine, or a mock implementation.
+Use `AnnotationProvider` as an application boundary. The provider receives a plain payload and returns patches. It can call OpenAI, Ollama, an internal API, a local rules engine, or a mock implementation.
 
 ```ts
 interface AnnotationProvider {
@@ -89,17 +82,13 @@ const patches = createTreeAnnotationPatchesFromProviderResult(
 );
 ```
 
-`request.payload` contains normalized `language`, trimmed `prompt`, `nodes`, and
-the selected `scope`, `target`, and `overwrite` flags so provider boundaries can
-stay stateless.
+`request.payload` contains normalized `language`, trimmed `prompt`, `nodes`, and the selected `scope`, `target`, and `overwrite` flags so provider boundaries can stay stateless.
 
-The core package does not know what `/api/annotations` is. That endpoint belongs
-to the host application.
+The core package does not know what `/api/annotations` is. That endpoint belongs to the host application.
 
 ## Diff And Apply Workflow
 
-Create a diff before applying provider patches so a UI can review added,
-updated, and skipped entries.
+Create a diff before applying provider patches so a UI can review added, updated, and skipped entries.
 
 ```ts
 import {
@@ -121,8 +110,7 @@ const nextAnnotations = applyTreeAnnotationPatches(
 
 ## Retention After Re-read
 
-When a source is refreshed, a host application can reset annotations or retain
-only annotations whose paths still exist in the new tree.
+When a source is refreshed, a host application can reset annotations or retain only annotations whose paths still exist in the new tree.
 
 ```ts
 import { resolveTreeAnnotationsAfterRead } from '@devmc12/dir-tree/annotations';
@@ -143,11 +131,9 @@ Diff groups:
 
 - `added`: new comments for paths without existing comments
 - `updated`: changed comments for paths with existing comments
-- `skipped`: empty comments, unchanged comments, or paths outside the allowed
-  scope
+- `skipped`: empty comments, unchanged comments, or paths outside the allowed scope
 
-`removeAnnotationDiffEntry` can remove an individual diff entry before applying
-accepted patches.
+`removeAnnotationDiffEntry` can remove an individual diff entry before applying accepted patches.
 
 ## Annotated ASCII
 
@@ -165,8 +151,7 @@ const text = renderAnnotatedAsciiTree(lines, annotations, {
 });
 ```
 
-Normalize UI or persisted annotation render settings with
-`createAnnotatedAsciiTreeRenderOptionsFromConfig`.
+Normalize UI or persisted annotation render settings with `createAnnotatedAsciiTreeRenderOptionsFromConfig`.
 
 ```ts
 import { createAnnotatedAsciiTreeRenderOptionsFromConfig } from '@devmc12/dir-tree/annotations';
@@ -190,8 +175,7 @@ const parsed = parseAnnotatedAsciiTree(lines, editedText, {
 
 ## Edited ASCII Diff
 
-Use `createEditedAsciiAnnotationDiff` when users edit annotated ASCII text and a
-UI needs a review step before applying changes.
+Use `createEditedAsciiAnnotationDiff` when users edit annotated ASCII text and a UI needs a review step before applying changes.
 
 ```ts
 import {
@@ -219,8 +203,7 @@ The result separates:
 - `applyPatches`
 - `ignoredLineNumbers`
 
-Ignored lines are useful when the edited text contains comments that cannot be
-mapped back to a known tree path.
+Ignored lines are useful when the edited text contains comments that cannot be mapped back to a known tree path.
 
 ## Boundary Rules
 

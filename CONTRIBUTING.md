@@ -33,5 +33,4 @@ New public exports should include:
 
 ## Release checks
 
-Before publishing, follow `docs/release.md`. The release checklist verifies the
-headless package boundary, installed package smoke tests, and playground build.
+Before publishing, follow `docs/release.md`. The release checklist verifies the headless package boundary, installed package smoke tests, and playground build.
