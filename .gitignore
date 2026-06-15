@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.npm-cache/
+.tmp/
+.idea/
+*.tsbuildinfo
+.DS_Store
+*.log
+playground/dist/
+playground/node_modules/
+playground-node/node_modules/

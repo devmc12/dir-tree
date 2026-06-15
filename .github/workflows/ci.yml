@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - run: npm run smoke:exports
+      - run: npm run smoke:install
+      - run: npm run pack:dry
+      - run: npm run pack:verify
+      - run: npm ci --prefix playground
+      - run: npm --prefix playground run typecheck
+      - run: npm run build:playground

@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@devmc12/dir-tree": ["../src/index.ts"],
+      "@devmc12/dir-tree/adapters": ["../src/adapters/index.ts"],
+      "@devmc12/dir-tree/annotations": ["../src/annotations/index.ts"],
+      "@devmc12/dir-tree/ascii": ["../src/ascii/index.ts"],
+      "@devmc12/dir-tree/browser": ["../src/browser/index.ts"],
+      "@devmc12/dir-tree/node": ["../src/node/index.ts"],
+      "@devmc12/dir-tree/parser": ["../src/parser/index.ts"],
+      "@devmc12/dir-tree/selection": ["../src/selection/index.ts"],
+      "@devmc12/dir-tree/transfer": ["../src/transfer/index.ts"],
+      "@devmc12/dir-tree/tree": ["../src/tree/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,120 @@
+{
+  "name": "@devmc12/dir-tree",
+  "version": "1.0.0",
+  "description": "Headless directory tree reader, parser, renderer, and annotation toolkit.",
+  "type": "module",
+  "license": "MIT",
+  "author": "devmc12",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devmc12/dir-tree.git"
+  },
+  "bugs": {
+    "url": "https://github.com/devmc12/dir-tree/issues"
+  },
+  "homepage": "https://github.com/devmc12/dir-tree#readme",
+  "keywords": [
+    "directory-tree",
+    "file-tree",
+    "ascii-tree",
+    "headless",
+    "tree-parser"
+  ],
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
+      "import": "./dist/adapters/index.js",
+      "require": "./dist/adapters/index.cjs"
+    },
+    "./annotations": {
+      "types": "./dist/annotations/index.d.ts",
+      "import": "./dist/annotations/index.js",
+      "require": "./dist/annotations/index.cjs"
+    },
+    "./ascii": {
+      "types": "./dist/ascii/index.d.ts",
+      "import": "./dist/ascii/index.js",
+      "require": "./dist/ascii/index.cjs"
+    },
+    "./browser": {
+      "types": "./dist/browser/index.d.ts",
+      "import": "./dist/browser/index.js",
+      "require": "./dist/browser/index.cjs"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js",
+      "require": "./dist/node/index.cjs"
+    },
+    "./parser": {
+      "types": "./dist/parser/index.d.ts",
+      "import": "./dist/parser/index.js",
+      "require": "./dist/parser/index.cjs"
+    },
+    "./selection": {
+      "types": "./dist/selection/index.d.ts",
+      "import": "./dist/selection/index.js",
+      "require": "./dist/selection/index.cjs"
+    },
+    "./transfer": {
+      "types": "./dist/transfer/index.d.ts",
+      "import": "./dist/transfer/index.js",
+      "require": "./dist/transfer/index.cjs"
+    },
+    "./tree": {
+      "types": "./dist/tree/index.d.ts",
+      "import": "./dist/tree/index.js",
+      "require": "./dist/tree/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "README.zh.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "smoke:exports": "node scripts/smoke-exports.mjs",
+    "smoke:install": "node scripts/smoke-installed-package.mjs",
+    "pack:dry": "npm pack --dry-run --cache .npm-cache",
+    "pack:verify": "node scripts/verify-pack-boundary.mjs",
+    "dev:playground": "npm --prefix playground run dev",
+    "build:playground": "npm --prefix playground run build",
+    "start:playground-node": "npm --prefix playground-node run start",
+    "typecheck:playground-node": "npm --prefix playground-node run typecheck"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^20.19.25",
+    "eslint": "^9.39.1",
+    "prettier": "^3.8.3",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vitest": "^4.0.15"
+  },
+  "engines": {
+    "node": ">=18.18"
+  }
+}

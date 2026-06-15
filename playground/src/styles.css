@@ -1,0 +1,72 @@
+:root {
+  --reader-bg: #fafafa;
+  --reader-drop-bg: rgba(0, 188, 125, 0.08);
+  --reader-fg: #3f3f46;
+  --reader-fg-strong: #18181b;
+  --reader-muted: #71717a;
+  --reader-panel: #ffffff;
+  --reader-soft-panel: #f7f7f7;
+  --reader-input: #ffffff;
+  --reader-border: #e4e4e7;
+  --reader-border-strong: #d4d4d8;
+  --reader-row-border: rgba(0, 188, 125, 0.16);
+  --reader-primary: #00bc7d;
+  --reader-primary-strong: #059669;
+  --reader-primary-soft: rgba(0, 188, 125, 0.1);
+  --reader-primary-tint: rgba(0, 188, 125, 0.05);
+  --reader-primary-border: rgba(0, 188, 125, 0.28);
+  --reader-focus: rgba(0, 188, 125, 0.18);
+  --reader-button: #00bc7d;
+  --reader-button-border: #00bc7d;
+  --reader-button-fg: #ffffff;
+  --reader-button-hover: #00a66f;
+  --reader-button-hover-border: #00a66f;
+  --reader-button-hover-fg: #ffffff;
+  --reader-muted-bg: #f4f4f5;
+  --reader-muted-surface: #f7f7f7;
+  --reader-row-active: #f0f2f5;
+  --reader-note-bg: rgba(24, 24, 27, 0.045);
+  --reader-note-hover: rgba(24, 24, 27, 0.075);
+  --reader-code-bg: rgba(24, 24, 27, 0.03);
+  --reader-code-fg: #18181b;
+  --reader-folder: #eab308;
+  --reader-danger: #dc2626;
+  --reader-danger-soft: rgba(220, 38, 38, 0.08);
+  --reader-info-bg: #e7f7ef;
+  --reader-info-border: #b9e5ce;
+  --reader-info-fg: #0f6f59;
+  --reader-success-bg: #ecfdf5;
+  --reader-success-border: #bbf7d0;
+  --reader-success-fg: #0f7a63;
+  --reader-error-bg: #fef2f2;
+  --reader-error-border: #fecaca;
+  --reader-error-fg: #b91c1c;
+  --reader-pending-bg: #f0fdf4;
+  --reader-pending-border: #a7f3d0;
+  --reader-pending-fg: #0f6f59;
+  --reader-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.03), 0 12px 32px rgba(15, 23, 42, 0.04);
+  --reader-shadow-strong: 0 24px 70px rgba(15, 23, 42, 0.28);
+  --reader-font-mono: 'Cascadia Code', 'Consolas', monospace;
+  background: var(--reader-bg);
+  color: var(--reader-fg);
+  font-family: 'Segoe UI', Aptos, system-ui, sans-serif;
+  font-synthesis: none;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 1120px;
+}
