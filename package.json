@@ -1,6 +1,6 @@
 {
   "name": "@devmc12/dir-tree",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Headless directory tree reader, parser, renderer, and annotation toolkit.",
   "type": "module",
   "license": "MIT",

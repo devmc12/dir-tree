@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.1
+
+- Added a GitHub Release workflow that publishes `@devmc12/dir-tree` to npm through Trusted Publishing with provenance
+- Added release guards for tag/version mismatches and already-published npm versions
+- Refined README presentation with centered badges, browser-first package positioning, and natural Markdown prose wrapping
+- Updated release documentation for the automated GitHub Release flow and npm Trusted Publisher settings
+- Updated package homepage metadata to point to `https://dir-tree.com`
+
 ## 1.0.0
 
 Initial release of the headless `dir-tree` toolkit.
