@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Fixed remote repository completeness by following all GitHub/GitLab branch pages and all GitLab repository-tree pages
+- Added GitHub `truncated` tree recovery through complete subtree traversal, including targeted subpath reads and explicit failure instead of partial results
+
 ## 1.0.2
 
 - Fixed default Unicode ASCII output round-trip parsing for non-final file branches, including annotated whole-tree imports

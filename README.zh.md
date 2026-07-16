@@ -194,6 +194,8 @@ const tree = await new FileSystemReader(
 ).read({ depth: 4 });
 ```
 
+内置 fetch client 会读取 GitHub/GitLab 的全部分支分页，以及 GitLab 仓库树的全部分页。GitHub 仓库树仍优先使用单次递归请求；当 GitHub 将响应标记为 truncated 时，client 会丢弃不完整数据，改为逐级展开完整子树。大型仓库可能消耗较多 API 配额，建议传入 token，或使用指向较小子目录的 tree URL。
+
 远程仓库辅助函数从 `@devmc12/dir-tree/adapters` 导出，包括 URL 解析、ref/路径解析、分支解析、平台条目映射，以及 fetch client 创建。需要先加载默认分支与分支列表（例如填充分支下拉框）时，使用 `resolveRemoteRepositoryBranches`。
 
 ```ts

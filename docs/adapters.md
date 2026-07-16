@@ -169,6 +169,16 @@ const tree = await new FileSystemReader(
 ).read({ depth: 3, readFileMeta: true });
 ```
 
+The built-in API client guarantees complete results or throws an error:
+
+- GitHub and GitLab branch lists follow provider pagination until the final page
+- GitLab repository trees use keyset pagination and aggregate every returned page
+- GitHub repository trees use one recursive request when possible; a `truncated: true` response is discarded and recovered by traversing complete subtrees through their tree SHAs
+- GitHub subpath reads locate and expand only the requested subtree after a truncated root response
+- Pagination and subtree requests reuse the same token and `AbortSignal`; a later-page error, rate limit, abort, or incomplete shallow tree never returns partial entries
+
+GitHub recursive tree responses are limited by the provider to 100,000 entries or 7 MB. Large repository reads can therefore require many API requests. Pass a token for higher provider limits, and prefer a repository tree URL for a narrower subpath when the whole repository is unnecessary.
+
 Adapter options:
 
 ```ts

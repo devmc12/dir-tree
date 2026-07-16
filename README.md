@@ -169,6 +169,8 @@ const tree = await new FileSystemReader(
 ).read({ depth: 4 });
 ```
 
+The built-in fetch client follows every GitHub/GitLab branch page and every GitLab repository-tree page. GitHub tree reads keep the single recursive request fast path; when GitHub marks that response as truncated, the client discards the partial data and expands the repository through complete subtrees instead. Large imports can consume significant API quota, so prefer a token or a narrower tree URL when available.
+
 Remote repository helper functions are exported from `@devmc12/dir-tree/adapters`, including URL parsing, ref/path resolution, branch resolution, provider entry mapping, and fetch client creation.
 
 ## Parse And Render

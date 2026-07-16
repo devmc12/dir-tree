@@ -14,6 +14,31 @@ import type {
  * Desc: Provides fetch-based GitHub and GitLab repository API clients
  */
 
+interface RemoteRepositoryJsonPage<T> {
+  data: T;
+  response: Response;
+}
+
+interface GitHubTreeResponse {
+  tree: unknown[];
+  truncated: boolean;
+}
+
+type GitHubTreeItemType = 'blob' | 'commit' | 'tree';
+
+interface GitHubTreeItem {
+  entry: RemoteRepositoryEntry;
+  sha?: string;
+  type: GitHubTreeItemType;
+}
+
+interface GitHubTreeReadContext {
+  cache: Map<string, Promise<GitHubTreeResponse>>;
+  options: RemoteRepositoryTreeOptions;
+  parsedUrl: ParsedRemoteRepositoryUrl;
+  token: string | undefined;
+}
+
 /**
  * Creates a fetch-based API client for the given repository provider
  * @param provider Repository provider the client should target
@@ -72,7 +97,7 @@ function createFetchRemoteRepositoryApiClient(
      */
     async listBranches(parsedUrl, signal) {
       const url = createRemoteRepositoryBranchesUrl(provider, parsedUrl);
-      const data = await requestRemoteRepositoryJson<unknown[]>(
+      const data = await requestAllRemoteRepositoryJsonPages(
         provider,
         url,
         token,
@@ -175,67 +200,303 @@ async function listGitHubTreeEntries(
   token: string | undefined,
   options: RemoteRepositoryTreeOptions = {}
 ): Promise<RemoteRepositoryEntry[]> {
-  const url = new URL(
-    `https://api.github.com/repos/${parsedUrl.owner}/${parsedUrl.repo}/git/trees/${encodeURIComponent(ref)}`
-  );
-
-  url.searchParams.set('recursive', '1');
-
-  const data = await requestRemoteRepositoryJson<Record<string, unknown>>(
-    'github',
-    url.toString(),
+  const context: GitHubTreeReadContext = {
+    cache: new Map(),
+    options,
+    parsedUrl,
     token,
-    options.signal
+  };
+  const normalizedSubPath = normalizeRemoteRepositoryPath(
+    options.subPath ?? ''
   );
-  const tree = Array.isArray(data.tree) ? data.tree : [];
-  const entries = tree
-    .map(entry => mapGitHubTreeEntry(entry, options))
-    .filter((entry): entry is RemoteRepositoryEntry => entry !== null);
+  const rootResponse = await requestGitHubTree(context, ref, true);
+  const entries =
+    rootResponse.truncated && normalizedSubPath
+      ? await readGitHubSubPathTree(context, ref, normalizedSubPath)
+      : await readCompleteGitHubTree(context, ref, '');
 
-  assertRemoteRepositorySubPathExists(entries, options.subPath);
+  return scopeRemoteRepositoryEntries(entries, normalizedSubPath, 'github');
+}
+
+/**
+ * Reads a GitHub tree recursively and splits truncated responses into subtrees
+ * @param context GitHub request context with response cache
+ * @param treeish Branch, tag, commit, or tree SHA to read
+ * @param pathPrefix Repository path prefix applied to returned relative paths
+ * @returns Complete normalized entries below the requested tree
+ */
+async function readCompleteGitHubTree(
+  context: GitHubTreeReadContext,
+  treeish: string,
+  pathPrefix: string
+): Promise<RemoteRepositoryEntry[]> {
+  const recursiveResponse = await requestGitHubTree(context, treeish, true);
+
+  if (!recursiveResponse.truncated) {
+    return mapGitHubTreeItems(
+      recursiveResponse.tree,
+      context.options,
+      pathPrefix
+    ).map(item => item.entry);
+  }
+
+  const shallowResponse = await requestGitHubTree(context, treeish, false);
+
+  assertGitHubShallowTreeIsComplete(shallowResponse);
+
+  const entries: RemoteRepositoryEntry[] = [];
+  const items = mapGitHubTreeItems(
+    shallowResponse.tree,
+    context.options,
+    pathPrefix
+  );
+
+  for (const item of items) {
+    entries.push(item.entry);
+
+    if (item.type !== 'tree') {
+      continue;
+    }
+
+    if (!item.sha) {
+      throw new RemoteRepositoryError({
+        code: 'unknown',
+        message: 'GitHub tree response did not include a subtree SHA',
+        provider: 'github',
+      });
+    }
+
+    entries.push(
+      ...(await readCompleteGitHubTree(context, item.sha, item.entry.path))
+    );
+  }
+
   return entries;
 }
 
 /**
- * Converts a raw GitHub tree node into a normalized repository entry
- * @param entry Raw tree node returned by the GitHub API
- * @param options Tree request options controlling metadata extraction
- * @returns Normalized entry, or null when the node is not a file or directory
+ * Locates a GitHub repository subpath before expanding only that subtree
+ * @param context GitHub request context with response cache
+ * @param rootTreeish Root branch, tag, or commit reference
+ * @param subPath Normalized directory path to locate
+ * @returns Complete entries for the requested directory only
  */
-function mapGitHubTreeEntry(
-  entry: unknown,
-  options: RemoteRepositoryTreeOptions
-): RemoteRepositoryEntry | null {
-  if (!entry || typeof entry !== 'object' || !('path' in entry)) {
+async function readGitHubSubPathTree(
+  context: GitHubTreeReadContext,
+  rootTreeish: string,
+  subPath: string
+): Promise<RemoteRepositoryEntry[]> {
+  const segments = subPath.split('/').filter(Boolean);
+  let currentTreeish = rootTreeish;
+  let currentPath = '';
+
+  for (const [index, segment] of segments.entries()) {
+    const shallowResponse = await requestGitHubTree(
+      context,
+      currentTreeish,
+      false
+    );
+
+    assertGitHubShallowTreeIsComplete(shallowResponse);
+
+    const nextPath = joinRemoteRepositoryPath(currentPath, segment);
+    const item = mapGitHubTreeItems(
+      shallowResponse.tree,
+      context.options,
+      currentPath
+    ).find(candidate => candidate.entry.path === nextPath);
+
+    if (!item || item.type === 'blob') {
+      throw createRemoteRepositorySubPathError('github');
+    }
+
+    const isLastSegment = index === segments.length - 1;
+
+    if (item.type === 'commit') {
+      if (isLastSegment) {
+        return [item.entry];
+      }
+
+      throw createRemoteRepositorySubPathError('github');
+    }
+
+    if (!item.sha) {
+      throw new RemoteRepositoryError({
+        code: 'unknown',
+        message: 'GitHub tree response did not include a subtree SHA',
+        provider: 'github',
+      });
+    }
+
+    if (isLastSegment) {
+      return [
+        item.entry,
+        ...(await readCompleteGitHubTree(context, item.sha, nextPath)),
+      ];
+    }
+
+    currentTreeish = item.sha;
+    currentPath = nextPath;
+  }
+
+  throw createRemoteRepositorySubPathError('github');
+}
+
+/**
+ * Requests and caches a GitHub tree response
+ * @param context GitHub request context with response cache
+ * @param treeish Branch, tag, commit, or tree SHA to read
+ * @param recursive Whether GitHub should return recursive descendants
+ * @returns Validated GitHub tree response
+ */
+function requestGitHubTree(
+  context: GitHubTreeReadContext,
+  treeish: string,
+  recursive: boolean
+): Promise<GitHubTreeResponse> {
+  const cacheKey = `${recursive ? 'recursive' : 'shallow'}:${treeish}`;
+  const cachedResponse = context.cache.get(cacheKey);
+
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  const responsePromise = requestGitHubTreeUncached(
+    context,
+    treeish,
+    recursive
+  );
+
+  context.cache.set(cacheKey, responsePromise);
+  return responsePromise;
+}
+
+/**
+ * Requests a GitHub tree response from the provider API
+ * @param context GitHub request context
+ * @param treeish Branch, tag, commit, or tree SHA to read
+ * @param recursive Whether GitHub should return recursive descendants
+ * @returns Validated GitHub tree response
+ */
+async function requestGitHubTreeUncached(
+  context: GitHubTreeReadContext,
+  treeish: string,
+  recursive: boolean
+): Promise<GitHubTreeResponse> {
+  const url = new URL(
+    `https://api.github.com/repos/${context.parsedUrl.owner}/${context.parsedUrl.repo}/git/trees/${encodeURIComponent(treeish)}`
+  );
+
+  if (recursive) {
+    url.searchParams.set('recursive', '1');
+  }
+
+  const data = await requestRemoteRepositoryJson<Record<string, unknown>>(
+    'github',
+    url.toString(),
+    context.token,
+    context.options.signal
+  );
+
+  if (!Array.isArray(data.tree)) {
+    throw new RemoteRepositoryError({
+      code: 'unknown',
+      message: 'GitHub tree response did not include a tree array',
+      provider: 'github',
+    });
+  }
+
+  return {
+    tree: data.tree,
+    truncated: data.truncated === true,
+  };
+}
+
+/**
+ * Maps raw GitHub tree nodes with a repository path prefix
+ * @param tree Raw GitHub tree array
+ * @param options Tree request options controlling metadata extraction
+ * @param pathPrefix Repository path prefix applied to relative API paths
+ * @returns Valid file, directory, and submodule items
+ */
+function mapGitHubTreeItems(
+  tree: unknown[],
+  options: RemoteRepositoryTreeOptions,
+  pathPrefix: string
+): GitHubTreeItem[] {
+  return tree
+    .map(entry => mapGitHubTreeItem(entry, options, pathPrefix))
+    .filter((item): item is GitHubTreeItem => item !== null);
+}
+
+/**
+ * Converts a raw GitHub tree node into a normalized repository item
+ * @param rawEntry Raw tree node returned by the GitHub API
+ * @param options Tree request options controlling metadata extraction
+ * @param pathPrefix Repository path prefix applied to the raw path
+ * @returns Normalized item, or null when the node type is unsupported
+ */
+function mapGitHubTreeItem(
+  rawEntry: unknown,
+  options: RemoteRepositoryTreeOptions,
+  pathPrefix: string
+): GitHubTreeItem | null {
+  if (!rawEntry || typeof rawEntry !== 'object' || !('path' in rawEntry)) {
     return null;
   }
 
-  const path = entry.path;
-  const type = 'type' in entry ? entry.type : undefined;
+  const rawPath = rawEntry.path;
+  const type = 'type' in rawEntry ? rawEntry.type : undefined;
 
-  if (typeof path !== 'string') {
+  if (
+    typeof rawPath !== 'string' ||
+    (type !== 'blob' && type !== 'commit' && type !== 'tree')
+  ) {
     return null;
   }
+
+  const path = joinRemoteRepositoryPath(pathPrefix, rawPath);
 
   if (type === 'tree' || type === 'commit') {
-    return { kind: 'directory', path };
-  }
+    const item: GitHubTreeItem = {
+      entry: { kind: 'directory', path },
+      type,
+    };
 
-  if (type !== 'blob') {
-    return null;
+    if ('sha' in rawEntry && typeof rawEntry.sha === 'string') {
+      item.sha = rawEntry.sha;
+    }
+
+    return item;
   }
 
   const fileEntry: RemoteRepositoryEntry = { kind: 'file', path };
 
   if (
     options.readFileMeta &&
-    'size' in entry &&
-    typeof entry.size === 'number'
+    'size' in rawEntry &&
+    typeof rawEntry.size === 'number'
   ) {
-    fileEntry.size = entry.size;
+    fileEntry.size = rawEntry.size;
   }
 
-  return fileEntry;
+  return { entry: fileEntry, type };
+}
+
+/**
+ * Rejects a shallow GitHub tree response that cannot guarantee completeness
+ * @param response Non-recursive GitHub tree response
+ */
+function assertGitHubShallowTreeIsComplete(response: GitHubTreeResponse): void {
+  if (!response.truncated) {
+    return;
+  }
+
+  throw new RemoteRepositoryError({
+    code: 'too-large',
+    message: 'GitHub could not return a complete non-recursive tree',
+    provider: 'github',
+  });
 }
 
 /**
@@ -258,6 +519,7 @@ async function listGitLabTreeEntries(
 
   url.searchParams.set('ref', ref);
   url.searchParams.set('recursive', 'true');
+  url.searchParams.set('pagination', 'keyset');
   url.searchParams.set('per_page', '100');
 
   if (options.subPath) {
@@ -267,7 +529,7 @@ async function listGitLabTreeEntries(
     );
   }
 
-  const data = await requestRemoteRepositoryJson<unknown[]>(
+  const data = await requestAllRemoteRepositoryJsonPages(
     'gitlab',
     url.toString(),
     token,
@@ -277,8 +539,7 @@ async function listGitLabTreeEntries(
     .map(entry => mapGitLabTreeEntry(entry, options))
     .filter((entry): entry is RemoteRepositoryEntry => entry !== null);
 
-  assertRemoteRepositorySubPathExists(entries, options.subPath);
-  return entries;
+  return scopeRemoteRepositoryEntries(entries, options.subPath, 'gitlab');
 }
 
 /**
@@ -337,6 +598,91 @@ async function requestRemoteRepositoryJson<T>(
   token: string | undefined,
   signal: AbortSignal | undefined
 ): Promise<T> {
+  const page = await requestRemoteRepositoryJsonPage<T>(
+    provider,
+    url,
+    token,
+    signal
+  );
+
+  return page.data;
+}
+
+/**
+ * Requests every page from a paginated repository API collection
+ * @param provider Repository provider used for headers and errors
+ * @param initialUrl First collection page URL
+ * @param token Optional access token used for authenticated requests
+ * @param signal Optional abort signal for cancellation
+ * @returns Concatenated collection items from every page
+ */
+async function requestAllRemoteRepositoryJsonPages(
+  provider: RemoteRepositoryProvider,
+  initialUrl: string,
+  token: string | undefined,
+  signal: AbortSignal | undefined
+): Promise<unknown[]> {
+  const initialOrigin = new URL(initialUrl).origin;
+  const visitedUrls = new Set<string>();
+  const items: unknown[] = [];
+  let nextUrl: string | null = initialUrl;
+
+  while (nextUrl) {
+    const currentUrl = new URL(nextUrl).toString();
+
+    if (visitedUrls.has(currentUrl)) {
+      throw new RemoteRepositoryError({
+        code: 'unknown',
+        message: 'Repository API pagination returned a repeated page URL',
+        provider,
+      });
+    }
+
+    visitedUrls.add(currentUrl);
+
+    const page = await requestRemoteRepositoryJsonPage<unknown[]>(
+      provider,
+      currentUrl,
+      token,
+      signal
+    );
+
+    if (!Array.isArray(page.data)) {
+      throw new RemoteRepositoryError({
+        code: 'unknown',
+        message: 'Repository API collection response was not an array',
+        provider,
+      });
+    }
+
+    items.push(...page.data);
+    nextUrl = resolveRemoteRepositoryNextPageUrl(
+      provider,
+      currentUrl,
+      initialOrigin,
+      page.response
+    );
+  }
+
+  return items;
+}
+
+/**
+ * Requests one JSON page and preserves response headers for pagination
+ * @param provider Repository provider used for headers and errors
+ * @param url Fully qualified request URL
+ * @param token Optional access token used for authenticated requests
+ * @param signal Optional abort signal for cancellation
+ * @returns Parsed JSON body and original response
+ */
+async function requestRemoteRepositoryJsonPage<T>(
+  provider: RemoteRepositoryProvider,
+  url: string,
+  token: string | undefined,
+  signal: AbortSignal | undefined
+): Promise<RemoteRepositoryJsonPage<T>> {
+  throwIfRemoteRepositoryRequestAborted(signal);
+
   const requestInit: RequestInit = {
     headers: createRemoteRepositoryHeaders(provider, token),
   };
@@ -351,7 +697,112 @@ async function requestRemoteRepositoryJson<T>(
     throw await createRemoteRepositoryResponseError(provider, response);
   }
 
-  return (await response.json()) as T;
+  return {
+    data: (await response.json()) as T,
+    response,
+  };
+}
+
+/**
+ * Resolves the provider URL for the next collection page
+ * @param provider Repository provider used for fallback headers and errors
+ * @param currentUrl Current page URL
+ * @param initialOrigin Origin that every page must preserve
+ * @param response Current page response with pagination headers
+ * @returns Validated next page URL, or null at the end of the collection
+ */
+function resolveRemoteRepositoryNextPageUrl(
+  provider: RemoteRepositoryProvider,
+  currentUrl: string,
+  initialOrigin: string,
+  response: Response
+): string | null {
+  const linkUrl = readRemoteRepositoryNextLink(response.headers.get('link'));
+  let candidateUrl = linkUrl;
+
+  if (!candidateUrl && provider === 'gitlab') {
+    const nextPage = response.headers.get('x-next-page')?.trim();
+
+    if (nextPage) {
+      const url = new URL(currentUrl);
+
+      url.searchParams.set('page', nextPage);
+      candidateUrl = url.toString();
+    }
+  }
+
+  if (!candidateUrl) {
+    return null;
+  }
+
+  let nextUrl: URL;
+
+  try {
+    nextUrl = new URL(candidateUrl, currentUrl);
+  } catch {
+    throw new RemoteRepositoryError({
+      code: 'unknown',
+      message: 'Repository API pagination returned an invalid next page URL',
+      provider,
+    });
+  }
+
+  if (nextUrl.origin !== initialOrigin) {
+    throw new RemoteRepositoryError({
+      code: 'unknown',
+      message: 'Repository API pagination changed request origin',
+      provider,
+    });
+  }
+
+  return nextUrl.toString();
+}
+
+/**
+ * Extracts the next relation from an HTTP Link header
+ * @param linkHeader Raw Link response header
+ * @returns Next page URL, or null when no next relation exists
+ */
+function readRemoteRepositoryNextLink(
+  linkHeader: string | null
+): string | null {
+  if (!linkHeader) {
+    return null;
+  }
+
+  for (const linkPart of linkHeader.split(',')) {
+    const urlMatch = /<([^>]+)>/u.exec(linkPart);
+    const relationMatch = /;\s*rel\s*=\s*"?([^";]+)"?/iu.exec(linkPart);
+    const relations =
+      relationMatch?.[1]
+        ?.trim()
+        .split(/\s+/u)
+        .map(relation => relation.toLowerCase()) ?? [];
+
+    if (urlMatch?.[1] && relations.includes('next')) {
+      return urlMatch[1];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Throws the original abort reason before starting another API request
+ * @param signal Optional abort signal shared by the repository read
+ */
+function throwIfRemoteRepositoryRequestAborted(
+  signal: AbortSignal | undefined
+): void {
+  if (!signal?.aborted) {
+    return;
+  }
+
+  if (signal.reason !== undefined) {
+    throw signal.reason;
+  }
+
+  throw new DOMException('The operation was aborted', 'AbortError');
 }
 
 /**
@@ -488,31 +939,68 @@ function createRemoteRepositoryHeaders(
 }
 
 /**
- * Throws a not-found error when no entry matches the requested subpath
- * @param entries Repository entries returned by the provider
- * @param subPath Optional subpath that must exist within the entries
+ * Joins a repository path prefix and relative child path
+ * @param pathPrefix Optional repository path prefix
+ * @param childPath Relative repository child path
+ * @returns Normalized joined repository path
  */
-function assertRemoteRepositorySubPathExists(
+function joinRemoteRepositoryPath(
+  pathPrefix: string,
+  childPath: string
+): string {
+  return normalizeRemoteRepositoryPath(
+    pathPrefix ? `${pathPrefix}/${childPath}` : childPath
+  );
+}
+
+/**
+ * Validates and limits entries to an optional repository subpath
+ * @param entries Repository entries returned by the provider
+ * @param subPath Optional subpath that must exist and be a directory
+ * @param provider Repository provider used for error context
+ * @returns Original entries or entries scoped to the requested directory
+ */
+function scopeRemoteRepositoryEntries(
   entries: RemoteRepositoryEntry[],
-  subPath?: string
-): void {
+  subPath: string | undefined,
+  provider: RemoteRepositoryProvider
+): RemoteRepositoryEntry[] {
   const normalizedSubPath = normalizeRemoteRepositoryPath(subPath ?? '');
 
   if (!normalizedSubPath) {
-    return;
+    return entries;
   }
 
   const hasSubPath = entries.some(entry => {
     return (
-      entry.path === normalizedSubPath ||
+      (entry.kind === 'directory' && entry.path === normalizedSubPath) ||
       entry.path.startsWith(`${normalizedSubPath}/`)
     );
   });
 
   if (!hasSubPath) {
-    throw new RemoteRepositoryError({
-      code: 'not-found',
-      message: 'Repository path was not found or is not a directory',
-    });
+    throw createRemoteRepositorySubPathError(provider);
   }
+
+  return entries.filter(entry => {
+    return (
+      entry.path === normalizedSubPath ||
+      entry.path.startsWith(`${normalizedSubPath}/`)
+    );
+  });
+}
+
+/**
+ * Creates a typed error for a missing or non-directory repository subpath
+ * @param provider Repository provider used for error context
+ * @returns Not-found repository error
+ */
+function createRemoteRepositorySubPathError(
+  provider: RemoteRepositoryProvider
+): RemoteRepositoryError {
+  return new RemoteRepositoryError({
+    code: 'not-found',
+    message: 'Repository path was not found or is not a directory',
+    provider,
+  });
 }
