@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 - Fixed remote repository completeness by following all GitHub/GitLab branch pages and all GitLab repository-tree pages
 - Added GitHub `truncated` tree recovery through complete subtree traversal, including targeted subpath reads and explicit failure instead of partial results
+- Added an interactive release script with version and changelog preparation, full validation, annotated tags, atomic pushes, and optional GitHub Release publishing
+- Added generated GitHub Release notes with commit and diff statistics, compare links, commit subjects, and the current release changelog
 
 ## 1.0.2
 
