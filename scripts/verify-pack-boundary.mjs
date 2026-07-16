@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { parseNpmPackResult } from './parse-npm-pack-result.mjs';
 
 /**
  * Date: 2026-06-07
@@ -34,7 +35,7 @@ const rawPackOutput = execFileSync(packCommand, packArgs, {
     npm_config_cache: process.env.DIR_TREE_NPM_CACHE ?? '.npm-cache',
   },
 });
-const [packResult] = JSON.parse(rawPackOutput);
+const packResult = parseNpmPackResult(rawPackOutput);
 const files = packResult.files.map(file => file.path);
 const invalidFiles = files.filter(file => {
   if (file.startsWith('dist/')) {

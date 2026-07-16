@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseNpmPackResult } from './parse-npm-pack-result.mjs';
 
 /**
  * Date: 2026-06-07
@@ -34,7 +35,7 @@ function runNpm(args, options = {}) {
 rmSync(smokeRoot, { force: true, recursive: true });
 mkdirSync(smokeRoot, { recursive: true });
 
-const [packResult] = JSON.parse(runNpm(['pack', '--json']));
+const packResult = parseNpmPackResult(runNpm(['pack', '--json']));
 const tarballPath = join(workspaceRoot, packResult.filename);
 
 try {

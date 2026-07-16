@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ## 1.0.2
 
 - Fixed default Unicode ASCII output round-trip parsing for non-final file branches, including annotated whole-tree imports
+- Fixed npm 12 package smoke checks and pinned the release workflow npm version for reproducible publishing
 
 ## 1.0.1
 
