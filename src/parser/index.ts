@@ -43,7 +43,7 @@ interface OpenHtmlListItem {
 
 // Recognizes common connector variants emitted by tree renderers
 const ASCII_BRANCH_PATTERN =
-  /(?:├───|└───|\+---|\\---|├──|└──|\|--|`--|\+--|\\--|├─|└─|\|-|`-)/u;
+  /(?:├───|└───|│───|\+---|\\---|├──|└──|│──|\|--|`--|\+--|\\--|├─|└─|│─|\|-|`-)/u;
 // Splits labels from trailing annotation comments in imported text
 const COMMENT_SUFFIX_PATTERN = /^(.*?)(?:\t+| {2,})(\/\/|#|;|--)\s*(.*?)\s*$/u;
 // Removes optional line numbers rendered by the ASCII tree output

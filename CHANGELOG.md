@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+## 1.0.2
+
+- Fixed default Unicode ASCII output round-trip parsing for non-final file branches, including annotated whole-tree imports
+
 ## 1.0.1
 
 - Added a GitHub Release workflow that publishes `@devmc12/dir-tree` to npm through Trusted Publishing with provenance

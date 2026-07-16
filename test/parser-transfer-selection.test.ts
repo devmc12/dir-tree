@@ -3,6 +3,8 @@ import {
   createExportedFileTreeJson,
   parseImportedFileTreeJson,
 } from '../src/transfer';
+import { renderAsciiTree, renderAsciiTreeLines } from '../src/ascii';
+import { renderAnnotatedAsciiTree } from '../src/annotations';
 import {
   parseImportedMarkdownDocumentTreeText,
   parseImportedTreeText,
@@ -24,7 +26,94 @@ import {
  * Desc: Verifies parser, transfer, selection, and remote mapping helpers
  */
 
+const unicodeRoundTripTree = {
+  name: 'project',
+  path: 'project',
+  kind: 'directory' as const,
+  children: [
+    {
+      name: 'README.md',
+      path: 'project/README.md',
+      kind: 'file' as const,
+    },
+    {
+      name: 'src',
+      path: 'project/src',
+      kind: 'directory' as const,
+      children: [
+        {
+          name: 'index.ts',
+          path: 'project/src/index.ts',
+          kind: 'file' as const,
+        },
+        {
+          name: 'components',
+          path: 'project/src/components',
+          kind: 'directory' as const,
+          children: [
+            {
+              name: 'Button.tsx',
+              path: 'project/src/components/Button.tsx',
+              kind: 'file' as const,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: 'package.json',
+      path: 'project/package.json',
+      kind: 'file' as const,
+    },
+  ],
+};
+
 describe('parser utilities', () => {
+  it('round-trips the default Unicode ASCII renderer output', () => {
+    const renderedTree = renderAsciiTree(unicodeRoundTripTree);
+    const parsedTree = parseImportedTreeText(renderedTree, 'project', {
+      format: 'ascii',
+    });
+
+    expect(renderedTree).toContain('│── README.md');
+    expect(renderedTree).toContain('│   │── index.ts');
+    expect(parsedTree.tree).toEqual(unicodeRoundTripTree);
+  });
+
+  it('applies an annotated default Unicode tree as a complete import', () => {
+    const renderedTree = renderAnnotatedAsciiTree(
+      renderAsciiTreeLines(unicodeRoundTripTree),
+      {
+        'project/README.md': {
+          path: 'project/README.md',
+          comment: 'Project overview',
+          source: 'manual',
+          syncStatus: 'local',
+          updatedAt: 1,
+        },
+        'project/src/index.ts': {
+          path: 'project/src/index.ts',
+          comment: 'Entry point',
+          source: 'manual',
+          syncStatus: 'local',
+          updatedAt: 1,
+        },
+      },
+      { commentTemplate: '// %comment%' }
+    );
+    const parsedTree = parseImportedTreeText(renderedTree, 'project', {
+      commentTemplate: '// %comment%',
+    });
+
+    expect(parsedTree.tree).toEqual(unicodeRoundTripTree);
+    expect(parsedTree.annotations['project/README.md']?.comment).toBe(
+      'Project overview'
+    );
+    expect(parsedTree.annotations['project/src/index.ts']?.comment).toBe(
+      'Entry point'
+    );
+  });
+
   it('parses JSON, Markdown, and ASCII tree imports', () => {
     const json = parseImportedTreeText(
       JSON.stringify({
