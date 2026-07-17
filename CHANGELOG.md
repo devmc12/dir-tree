@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Excluded generated `release: vX.Y.Z` commits from GitHub Release note counts and Overview entries
+
 ## 1.0.3
 
 - Fixed remote repository completeness by following all GitHub/GitLab branch pages and all GitLab repository-tree pages

@@ -441,14 +441,16 @@ export function buildGitHubReleaseNotes(options) {
     );
   }
 
-  const overview = options.commitSubjects
-    .map(subject => `- ${subject}`)
-    .join('\n');
+  const releaseCommitSubject = `release: ${options.currentTag}`;
+  const commitSubjects = options.commitSubjects.filter(
+    subject => subject !== releaseCommitSubject
+  );
+  const overview = commitSubjects.map(subject => `- ${subject}`).join('\n');
 
   return [
     `# ${options.displayName} v${options.version}`,
     '',
-    `> ${options.commitSubjects.length} commits · ${options.filesChanged} files changed · +${options.insertions} / -${options.deletions}`,
+    `> ${commitSubjects.length} commits · ${options.filesChanged} files changed · +${options.insertions} / -${options.deletions}`,
     '>',
     `> Full Changelog: [${compareRange}](${compareUrl})`,
     '',

@@ -187,7 +187,7 @@ The generated notes use the previous and current release tags as the range:
 ```md
 # dir-tree v1.0.3
 
-> 3 commits · 12 files changed · +520 / -83
+> 2 commits · 12 files changed · +520 / -83
 >
 > Full Changelog: [v1.0.2...v1.0.3](https://github.com/devmc12/dir-tree/compare/v1.0.2...v1.0.3)
 
@@ -195,7 +195,6 @@ The generated notes use the previous and current release tags as the range:
 
 - fix: first change
 - feat: second change
-- release: v1.0.3
 
 ## Changelog
 
@@ -204,7 +203,7 @@ The generated notes use the previous and current release tags as the range:
 
 The statistics and overview are generated from `v1.0.2..v1.0.3`:
 
-- Commit count and subjects include the release commit
+- Commit count and subjects exclude the generated `release: v1.0.3` commit
 - Commit subjects are listed oldest to newest using their first line only
 - Binary files count as changed files but contribute zero inserted or deleted lines
 - The Full Changelog link uses GitHub's three-dot compare URL

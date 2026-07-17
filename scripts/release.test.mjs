@@ -355,7 +355,7 @@ describe('GitHub Release notes', () => {
       [
         '# dir-tree v1.0.3',
         '',
-        '> 3 commits · 12 files changed · +520 / -83',
+        '> 2 commits · 12 files changed · +520 / -83',
         '>',
         '> Full Changelog: [v1.0.2...v1.0.3](https://github.com/devmc12/dir-tree/compare/v1.0.2...v1.0.3)',
         '',
@@ -363,7 +363,6 @@ describe('GitHub Release notes', () => {
         '',
         '- fix: complete remote repository tree reads',
         '- feat: add interactive release script',
-        '- release: v1.0.3',
         '',
         '## Changelog',
         '',
@@ -398,6 +397,8 @@ describe('GitHub Release notes', () => {
     });
 
     assert.ok(notes.includes(`## Changelog\n\n${changelog}\n`));
+    assert.ok(notes.includes('> 0 commits · 3 files changed · +3 / -0'));
+    assert.equal(notes.includes('release: v1.0.3'), false);
   });
 
   it('classifies GitHub Releases API statuses without response data', () => {
