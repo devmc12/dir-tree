@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 1.0.4
+
 - Excluded generated `release: vX.Y.Z` commits from GitHub Release note counts and Overview entries
 - Improved annotated ASCII layouts with Unicode grapheme-aware terminal widths, annotation-only global and per-folder alignment, and an independent normalized inline gap
 
