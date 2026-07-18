@@ -29,6 +29,7 @@ export interface PlaygroundAsciiOptionsState {
   annotationAlignmentMode: TreeAnnotationAlignmentMode;
   annotationCommentColumn: number;
   annotationCommentPrefix: TreeAnnotationCommentPrefix;
+  annotationInlineGap: number;
   annotationPrefixHasSpace: boolean;
   annotationTemplate: string;
   appendDirectorySlash: boolean;

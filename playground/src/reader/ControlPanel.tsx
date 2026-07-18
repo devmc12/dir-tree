@@ -31,6 +31,7 @@ import {
   MIN_TREE_ANNOTATION_COMMENT_COLUMN,
   TREE_ANNOTATION_ALIGNMENT_MODES,
   TREE_ANNOTATION_COMMENT_PREFIXES,
+  TREE_ANNOTATION_INLINE_GAP,
   TREE_ANNOTATION_TEMPLATE_PLACEHOLDER,
   clampTreeAnnotationCommentColumn,
   createTreeAnnotationPresetTemplate,
@@ -55,6 +56,7 @@ const COMMON_EXCLUDE_TEMPLATE_PATTERNS = [
 ];
 
 const METADATA_PREVIEW_TIMESTAMP = Date.UTC(2026, 4, 9, 12, 0);
+const MAX_ANNOTATION_INLINE_GAP = 96;
 const METADATA_PREVIEW_FILE = {
   filename: 'README.md',
   lastModified: METADATA_PREVIEW_TIMESTAMP,
@@ -365,6 +367,23 @@ function AsciiOptions() {
   );
   const annotationPrefixHasSpace =
     activeAnnotationSpacing ?? state.asciiOptions.annotationPrefixHasSpace;
+  const isInlineAnnotationMode =
+    state.asciiOptions.annotationAlignmentMode === 'inline';
+  const annotationSpacingDefault = isInlineAnnotationMode
+    ? TREE_ANNOTATION_INLINE_GAP
+    : DEFAULT_TREE_ANNOTATION_COMMENT_COLUMN;
+  const annotationSpacingLabel = isInlineAnnotationMode
+    ? copy.annotationStyle.inlineGap
+    : copy.annotationStyle.commentColumn;
+  const annotationSpacingMax = isInlineAnnotationMode
+    ? MAX_ANNOTATION_INLINE_GAP
+    : MAX_TREE_ANNOTATION_COMMENT_COLUMN;
+  const annotationSpacingMin = isInlineAnnotationMode
+    ? TREE_ANNOTATION_INLINE_GAP
+    : MIN_TREE_ANNOTATION_COMMENT_COLUMN;
+  const annotationSpacingValue = isInlineAnnotationMode
+    ? state.asciiOptions.annotationInlineGap
+    : state.asciiOptions.annotationCommentColumn;
   const connectorPartPresets =
     ASCII_TREE_CONNECTOR_PART_PRESETS[state.asciiOptions.connectorStyle];
   const activeConnectorPartPresetId = connectorPartPresets.find(preset =>
@@ -457,6 +476,26 @@ function AsciiOptions() {
       'annotationCommentColumn',
       clampTreeAnnotationCommentColumn(value)
     );
+  }
+
+  function setAnnotationInlineGap(value: number): void {
+    const nextValue = Number.isFinite(value)
+      ? Math.min(
+          MAX_ANNOTATION_INLINE_GAP,
+          Math.max(TREE_ANNOTATION_INLINE_GAP, Math.round(value))
+        )
+      : TREE_ANNOTATION_INLINE_GAP;
+
+    setAsciiOption('annotationInlineGap', nextValue);
+  }
+
+  function setAnnotationSpacing(value: number): void {
+    if (isInlineAnnotationMode) {
+      setAnnotationInlineGap(value);
+      return;
+    }
+
+    setAnnotationCommentColumn(value);
   }
 
   return (
@@ -765,27 +804,23 @@ function AsciiOptions() {
           </div>
         </div>
         <div className={styles.optionRow}>
-          <span>{copy.annotationStyle.commentColumn}</span>
+          <span>{annotationSpacingLabel}</span>
           <div className={styles.inlinePreviewActions}>
             <input
               className={styles.numberInput}
               inputMode="numeric"
-              max={MAX_TREE_ANNOTATION_COMMENT_COLUMN}
-              min={MIN_TREE_ANNOTATION_COMMENT_COLUMN}
+              max={annotationSpacingMax}
+              min={annotationSpacingMin}
               onChange={event =>
-                setAnnotationCommentColumn(Number(event.target.value))
+                setAnnotationSpacing(Number(event.target.value))
               }
               type="number"
-              value={state.asciiOptions.annotationCommentColumn}
+              value={annotationSpacingValue}
             />
             <button
               aria-label={copy.ascii.resetStyle}
               className={styles.inlineIconButton}
-              onClick={() =>
-                setAnnotationCommentColumn(
-                  DEFAULT_TREE_ANNOTATION_COMMENT_COLUMN
-                )
-              }
+              onClick={() => setAnnotationSpacing(annotationSpacingDefault)}
               title={copy.ascii.resetStyle}
               type="button">
               <RotateCcw aria-hidden="true" />
@@ -793,17 +828,15 @@ function AsciiOptions() {
           </div>
         </div>
         <input
-          max={MAX_TREE_ANNOTATION_COMMENT_COLUMN}
-          min={MIN_TREE_ANNOTATION_COMMENT_COLUMN}
-          onChange={event =>
-            setAnnotationCommentColumn(Number(event.target.value))
-          }
+          max={annotationSpacingMax}
+          min={annotationSpacingMin}
+          onChange={event => setAnnotationSpacing(Number(event.target.value))}
           type="range"
-          value={state.asciiOptions.annotationCommentColumn}
+          value={annotationSpacingValue}
         />
         <div className={styles.rangeTicks}>
-          <span>{MIN_TREE_ANNOTATION_COMMENT_COLUMN}</span>
-          <span>{MAX_TREE_ANNOTATION_COMMENT_COLUMN}</span>
+          <span>{annotationSpacingMin}</span>
+          <span>{annotationSpacingMax}</span>
         </div>
       </section>
     </>

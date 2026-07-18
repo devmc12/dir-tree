@@ -26,6 +26,7 @@ import {
   filterTreeAnnotationsByPaths,
   remapTreeAnnotations,
   renderAnnotatedAsciiTree,
+  TREE_ANNOTATION_INLINE_GAP,
   type TreeAnnotationMap,
 } from '@devmc12/dir-tree/annotations';
 import {
@@ -143,6 +144,10 @@ export function ReaderPlayground(): ReactNode {
         commentPrefix: state.asciiOptions.annotationCommentPrefix,
         commentPrefixHasSpace: state.asciiOptions.annotationPrefixHasSpace,
         commentTemplate: state.asciiOptions.annotationTemplate,
+        gap:
+          state.asciiOptions.annotationAlignmentMode === 'inline'
+            ? state.asciiOptions.annotationInlineGap
+            : TREE_ANNOTATION_INLINE_GAP,
       }),
     [state.asciiOptions]
   );

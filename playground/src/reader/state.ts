@@ -8,6 +8,7 @@ import {
   DEFAULT_TREE_ANNOTATION_ALIGNMENT_MODE,
   DEFAULT_TREE_ANNOTATION_COMMENT_COLUMN,
   DEFAULT_TREE_ANNOTATION_COMMENT_PREFIX,
+  TREE_ANNOTATION_INLINE_GAP,
   createTreeAnnotationPresetTemplate,
   applyTreeAnnotationPatch,
   type TreeAnnotationMap,
@@ -132,6 +133,7 @@ export const defaultAsciiOptionsState: PlaygroundAsciiOptionsState = {
   annotationAlignmentMode: DEFAULT_TREE_ANNOTATION_ALIGNMENT_MODE,
   annotationCommentColumn: DEFAULT_TREE_ANNOTATION_COMMENT_COLUMN,
   annotationCommentPrefix: DEFAULT_TREE_ANNOTATION_COMMENT_PREFIX,
+  annotationInlineGap: TREE_ANNOTATION_INLINE_GAP,
   annotationPrefixHasSpace: true,
   annotationTemplate: createTreeAnnotationPresetTemplate(
     DEFAULT_TREE_ANNOTATION_COMMENT_PREFIX,

@@ -25,6 +25,7 @@ export const en = {
     },
     commentColumn: 'Comment column',
     description: 'Control how row notes are rendered beside the ASCII tree.',
+    inlineGap: 'Gap after path',
     prefix: 'Prefix',
     space: 'Space after prefix',
     template: 'Template',

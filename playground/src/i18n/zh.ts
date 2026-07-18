@@ -25,6 +25,7 @@ export const zh = {
     },
     commentColumn: '注释列',
     description: '控制目录行注释在 ASCII 树旁边的渲染方式。',
+    inlineGap: '行尾间距',
     prefix: '前缀',
     space: '前缀后空格',
     template: '模板',
