@@ -213,8 +213,12 @@ function ReadOptions() {
       </div>
       <div className={styles.optionRow}>
         <span>{copy.readOptions.depth}</span>
-        <div className={styles.segmentControl}>
+        <div
+          className={styles.segmentGrid}
+          role="group"
+          aria-label={copy.readOptions.depth}>
           <button
+            aria-pressed={!state.readOptions.depth}
             className={!state.readOptions.depth ? styles.activeSegment : ''}
             onClick={() =>
               dispatch({ type: 'set-read-option', key: 'depth', value: '' })
@@ -223,6 +227,7 @@ function ReadOptions() {
             {copy.readOptions.unlimited}
           </button>
           <button
+            aria-pressed={Boolean(state.readOptions.depth)}
             className={state.readOptions.depth ? styles.activeSegment : ''}
             onClick={() =>
               dispatch({
@@ -520,9 +525,13 @@ function AsciiOptions() {
           <span className={styles.optionLabel}>
             {copy.ascii.connectorStyle}
           </span>
-          <div className={styles.segmentControl}>
+          <div
+            className={styles.segmentGrid}
+            role="group"
+            aria-label={copy.ascii.connectorStyle}>
             {(['unicode', 'ascii'] as const).map(style => (
               <button
+                aria-pressed={state.asciiOptions.connectorStyle === style}
                 className={
                   state.asciiOptions.connectorStyle === style
                     ? styles.activeSegment
@@ -582,9 +591,13 @@ function AsciiOptions() {
             ))}
           </div>
           {connectorPartPresets.length > 1 && (
-            <div className={styles.segmentControl}>
+            <div
+              className={styles.segmentGrid}
+              role="group"
+              aria-label={copy.ascii.connectorCharacters}>
               {connectorPartPresets.map(preset => (
                 <button
+                  aria-pressed={activeConnectorPartPresetId === preset.id}
                   className={
                     activeConnectorPartPresetId === preset.id
                       ? styles.activeSegment
@@ -606,9 +619,15 @@ function AsciiOptions() {
 
         <div className={styles.optionGroup}>
           <span className={styles.optionLabel}>{copy.ascii.indentation}</span>
-          <div className={styles.segmentGrid}>
+          <div
+            className={styles.segmentGrid}
+            role="group"
+            aria-label={copy.ascii.indentation}>
             {ASCII_TREE_INDENTATION_STYLES.map(indentationStyle => (
               <button
+                aria-pressed={
+                  state.asciiOptions.indentationStyle === indentationStyle
+                }
                 className={
                   state.asciiOptions.indentationStyle === indentationStyle
                     ? styles.activeSegment
@@ -660,9 +679,13 @@ function AsciiOptions() {
 
         <div className={styles.optionGroup}>
           <span className={styles.optionLabel}>{copy.ascii.rootLabelMode}</span>
-          <div className={styles.segmentControl}>
+          <div
+            className={styles.segmentGrid}
+            role="group"
+            aria-label={copy.ascii.rootLabelMode}>
             {(['name', 'dot'] as const).map(mode => (
               <button
+                aria-pressed={state.asciiOptions.rootLabelMode === mode}
                 className={
                   state.asciiOptions.rootLabelMode === mode
                     ? styles.activeSegment
@@ -748,9 +771,13 @@ function AsciiOptions() {
           <span className={styles.optionLabel}>
             {copy.annotationStyle.prefix}
           </span>
-          <div className={styles.segmentGridFour}>
+          <div
+            className={styles.segmentGridFour}
+            role="group"
+            aria-label={copy.annotationStyle.prefix}>
             {TREE_ANNOTATION_COMMENT_PREFIXES.map(prefix => (
               <button
+                aria-pressed={activeAnnotationPrefix === prefix}
                 className={
                   activeAnnotationPrefix === prefix ? styles.activeSegment : ''
                 }
@@ -782,9 +809,15 @@ function AsciiOptions() {
           <span className={styles.optionLabel}>
             {copy.annotationStyle.alignment}
           </span>
-          <div className={styles.segmentGrid}>
+          <div
+            className={styles.segmentGrid}
+            role="group"
+            aria-label={copy.annotationStyle.alignment}>
             {TREE_ANNOTATION_ALIGNMENT_MODES.map(mode => (
               <button
+                aria-pressed={
+                  state.asciiOptions.annotationAlignmentMode === mode
+                }
                 className={
                   state.asciiOptions.annotationAlignmentMode === mode
                     ? styles.activeSegment

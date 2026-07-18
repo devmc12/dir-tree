@@ -1,5 +1,5 @@
 export const zh = {
-  appTitle: 'Dir Tree Reader',
+  appTitle: 'Dir Tree Playground',
   actions: {
     cancel: '取消',
     clearVisibility: '清除隐藏',
@@ -160,6 +160,9 @@ export const zh = {
     hideControls: '隐藏控制',
     hideTree: '隐藏目录树',
     language: '语言',
+    openGithub: '在新标签页打开 devmc12/dir-tree GitHub 仓库',
+    openWebsite: '在新标签页打开 dir-tree.com',
+    projectLinks: '项目链接',
     showControls: '显示控制',
     showTree: '显示目录树',
   },

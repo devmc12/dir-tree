@@ -1,5 +1,5 @@
 export const en = {
-  appTitle: 'Dir Tree Reader',
+  appTitle: 'Dir Tree Playground',
   actions: {
     cancel: 'Cancel',
     clearVisibility: 'Clear hidden',
@@ -164,6 +164,9 @@ export const en = {
     hideControls: 'Hide controls',
     hideTree: 'Hide tree',
     language: 'Language',
+    openGithub: 'Open devmc12/dir-tree on GitHub in a new tab',
+    openWebsite: 'Open dir-tree.com in a new tab',
+    projectLinks: 'Project links',
     showControls: 'Show controls',
     showTree: 'Show tree',
   },

@@ -57,6 +57,14 @@
   min-width: 0;
 }
 
+.projectLinks {
+  align-items: center;
+  border-right: 1px solid var(--reader-border);
+  display: flex;
+  gap: 6px;
+  padding-right: 10px;
+}
+
 .workspace {
   display: flex;
   flex: 1 1 auto;
@@ -128,7 +136,8 @@
 }
 
 .shell button,
-.fileAction {
+.fileAction,
+.toolbarLink {
   align-items: center;
   background: var(--reader-panel);
   border: 1px solid var(--reader-border);
@@ -155,14 +164,16 @@
 }
 
 .shell button:hover,
-.fileAction:hover {
+.fileAction:hover,
+.toolbarLink:hover {
   background: var(--reader-muted-bg);
   border-color: var(--reader-border-strong);
   color: var(--reader-fg-strong);
 }
 
 .shell button:focus-visible,
-.fileAction:focus-visible {
+.fileAction:focus-visible,
+.toolbarLink:focus-visible {
   box-shadow: 0 0 0 3px var(--reader-focus);
   outline: none;
 }
@@ -174,6 +185,7 @@
 
 .shell button svg,
 .fileAction svg,
+.toolbarLink svg,
 .status svg,
 .asciiFooter svg,
 .dropCard svg {
@@ -251,7 +263,6 @@
 }
 
 .segmented,
-.segmentControl,
 .tabs,
 .createKindSwitch {
   align-items: center;
@@ -273,7 +284,6 @@
 }
 
 .segmented button,
-.segmentControl button,
 .tabs button,
 .createKindSwitch button,
 .segmentGrid button,
@@ -287,7 +297,6 @@
 }
 
 .segmented button:hover,
-.segmentControl button:hover,
 .tabs button:hover,
 .createKindSwitch button:hover,
 .segmentGrid button:hover,
@@ -310,8 +319,22 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.segmentGrid button,
+.segmentGridFour button {
+  background: var(--reader-muted-bg);
+  border: 1px solid var(--reader-border);
+  color: var(--reader-fg);
+}
+
+.segmentGrid button:hover,
+.segmentGridFour button:hover {
+  background: var(--reader-note-hover);
+  border-color: var(--reader-border-strong);
+}
+
 .activeSegment {
   background: var(--reader-primary) !important;
+  border-color: var(--reader-primary) !important;
   color: #ffffff !important;
   box-shadow: 0 1px 3px rgba(0, 188, 125, 0.22);
 }
@@ -641,7 +664,7 @@
   flex: 1 1 auto;
   font-family: var(--reader-font-mono);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.75;
   margin: 0;
   min-height: 0;
   outline: none;
@@ -782,17 +805,20 @@
 .shell textarea,
 .previewLine code,
 .connectorPreview code,
-.segmentControl code {
+.segmentGrid code,
+.segmentGridFour code {
   font-family: var(--reader-font-mono);
 }
 
 .shell textarea {
+  line-height: 1.65;
   min-height: 86px;
   resize: vertical;
 }
 
 .shell .asciiOutput {
   background: var(--reader-code-bg);
+  line-height: 1.75;
   min-height: 0;
   padding: 22px 26px;
   resize: none;
@@ -1116,6 +1142,24 @@
 
   .toolbar {
     padding-bottom: 12px;
+  }
+
+  .toolbarActions {
+    gap: 6px;
+  }
+
+  .projectLinks {
+    padding-right: 8px;
+  }
+
+  .toolbarLink {
+    min-height: 32px;
+    padding: 0;
+    width: 32px;
+  }
+
+  .toolbarLinkLabel {
+    display: none;
   }
 
   .treePanel {

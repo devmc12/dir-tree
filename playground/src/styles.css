@@ -1,14 +1,14 @@
 :root {
   --reader-bg: #fafafa;
   --reader-drop-bg: rgba(0, 188, 125, 0.08);
-  --reader-fg: #3f3f46;
-  --reader-fg-strong: #18181b;
-  --reader-muted: #71717a;
+  --reader-fg: #34433e;
+  --reader-fg-strong: #15231e;
+  --reader-muted: #66756f;
   --reader-panel: #ffffff;
-  --reader-soft-panel: #f7f7f7;
+  --reader-soft-panel: #f7faf9;
   --reader-input: #ffffff;
-  --reader-border: #e4e4e7;
-  --reader-border-strong: #d4d4d8;
+  --reader-border: #dbe5e1;
+  --reader-border-strong: #c6d3ce;
   --reader-row-border: rgba(0, 188, 125, 0.16);
   --reader-primary: #00bc7d;
   --reader-primary-strong: #059669;
@@ -22,14 +22,14 @@
   --reader-button-hover: #00a66f;
   --reader-button-hover-border: #00a66f;
   --reader-button-hover-fg: #ffffff;
-  --reader-muted-bg: #f4f4f5;
-  --reader-muted-surface: #f7f7f7;
-  --reader-row-active: #f0f2f5;
-  --reader-note-bg: rgba(24, 24, 27, 0.045);
-  --reader-note-hover: rgba(24, 24, 27, 0.075);
-  --reader-code-bg: rgba(24, 24, 27, 0.03);
-  --reader-code-fg: #18181b;
-  --reader-folder: #eab308;
+  --reader-muted-bg: #eef3f1;
+  --reader-muted-surface: #f5f8f7;
+  --reader-row-active: #eaf5f1;
+  --reader-note-bg: #eef3f1;
+  --reader-note-hover: #e3ebe7;
+  --reader-code-bg: #f7faf9;
+  --reader-code-fg: #17231f;
+  --reader-folder: #d99a00;
   --reader-danger: #dc2626;
   --reader-danger-soft: rgba(220, 38, 38, 0.08);
   --reader-info-bg: #e7f7ef;
@@ -45,7 +45,7 @@
   --reader-pending-border: #a7f3d0;
   --reader-pending-fg: #0f6f59;
   --reader-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.03), 0 12px 32px rgba(15, 23, 42, 0.04);
+    0 1px 2px rgba(15, 31, 25, 0.04), 0 12px 32px rgba(26, 65, 50, 0.07);
   --reader-shadow-strong: 0 24px 70px rgba(15, 23, 42, 0.28);
   --reader-font-mono: 'Cascadia Code', 'Consolas', monospace;
   background: var(--reader-bg);
