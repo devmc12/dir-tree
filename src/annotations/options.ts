@@ -3,6 +3,7 @@ import {
   MAX_TREE_ANNOTATION_COMMENT_COLUMN,
   MIN_TREE_ANNOTATION_COMMENT_COLUMN,
   TREE_ANNOTATION_COMMENT_PREFIXES,
+  TREE_ANNOTATION_INLINE_GAP,
   TREE_ANNOTATION_TEMPLATE_PLACEHOLDER,
 } from './types';
 import type {
@@ -56,7 +57,7 @@ export function createAnnotatedAsciiTreeRenderOptionsFromConfig(
   }
 
   if (config.gap !== undefined) {
-    options.gap = config.gap;
+    options.gap = normalizeTreeAnnotationGap(config.gap);
   }
 
   if (config.gapPaddingMode !== undefined) {
@@ -122,6 +123,27 @@ export function clampTreeAnnotationCommentColumn(
     MAX_TREE_ANNOTATION_COMMENT_COLUMN,
     Math.max(MIN_TREE_ANNOTATION_COMMENT_COLUMN, Math.round(commentColumn))
   );
+}
+
+/**
+ * Normalizes the minimum gap before an annotation
+ * @param gap Requested gap width
+ * @param fallback Gap used when the requested value is not finite
+ * @returns Finite integer gap of at least two columns
+ */
+export function normalizeTreeAnnotationGap(
+  gap: number | undefined,
+  fallback = TREE_ANNOTATION_INLINE_GAP
+): number {
+  const normalizedFallback = Number.isFinite(fallback)
+    ? Math.max(TREE_ANNOTATION_INLINE_GAP, Math.round(fallback))
+    : TREE_ANNOTATION_INLINE_GAP;
+
+  if (gap === undefined || !Number.isFinite(gap)) {
+    return normalizedFallback;
+  }
+
+  return Math.max(TREE_ANNOTATION_INLINE_GAP, Math.round(gap));
 }
 
 /**

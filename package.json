@@ -104,7 +104,8 @@
     "typecheck:playground-node": "npm --prefix playground-node run typecheck"
   },
   "dependencies": {
-    "fflate": "^0.8.2"
+    "fflate": "^0.8.2",
+    "string-width": "7.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

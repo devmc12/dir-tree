@@ -21,6 +21,13 @@ export default defineConfig({
     'src/tree/index.ts',
   ],
   format: ['esm', 'cjs'],
+  noExternal: [
+    'ansi-regex',
+    'emoji-regex',
+    'get-east-asian-width',
+    'string-width',
+    'strip-ansi',
+  ],
   sourcemap: true,
   splitting: false,
   target: 'es2020',

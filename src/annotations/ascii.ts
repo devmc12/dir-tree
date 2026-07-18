@@ -21,6 +21,7 @@ import type {
 import { getTreeAnnotationText } from './patch';
 import {
   clampTreeAnnotationCommentColumn,
+  normalizeTreeAnnotationGap,
   resolveTreeAnnotationTemplate,
 } from './options';
 
@@ -52,23 +53,34 @@ export function renderAnnotatedAsciiTree(
   const commentColumn = clampTreeAnnotationCommentColumn(
     options.commentColumn ?? DEFAULT_TREE_ANNOTATION_COMMENT_COLUMN
   );
-  const gap =
-    alignmentMode === 'inline'
+  const legacyInlineGap =
+    alignmentMode === 'inline' && options.commentColumn !== undefined
       ? commentColumn
-      : (options.gap ?? TREE_ANNOTATION_INLINE_GAP);
+      : undefined;
+  const gap = normalizeTreeAnnotationGap(
+    options.gap ?? legacyInlineGap,
+    TREE_ANNOTATION_INLINE_GAP
+  );
   const resolvedCommentTemplate = resolveTreeAnnotationTemplate(
     options,
     DEFAULT_TREE_ANNOTATION_COMMENT_PREFIX
   );
   const lineWidths = lines.map(line => getMonospaceTextWidth(line.text));
-  const baseWidth = lineWidths.reduce(
-    (maxWidth, lineWidth) => Math.max(maxWidth, lineWidth),
+  const lineComments = lines.map(line =>
+    line.isSynthetic ? '' : getTreeAnnotationText(annotations, line.path)
+  );
+  const annotatedTreeWidth = lineWidths.reduce(
+    (maxWidth, lineWidth, index) =>
+      lineComments[index] ? Math.max(maxWidth, lineWidth) : maxWidth,
     0
   );
-  const wholeTreeTargetWidth = Math.max(commentColumn, baseWidth + gap);
+  const wholeTreeTargetWidth = Math.max(
+    commentColumn,
+    annotatedTreeWidth + gap
+  );
   const folderGroupWidths =
     alignmentMode === 'folder-groups'
-      ? createFolderAnnotationGroupWidths(lines, lineWidths)
+      ? createFolderAnnotationGroupWidths(lines, lineWidths, lineComments)
       : [];
 
   /**
@@ -77,7 +89,11 @@ export function renderAnnotatedAsciiTree(
    * @param index Line index used to look up precomputed widths
    * @returns Target monospace width before appending the comment
    */
-  function getTargetWidth(line: AsciiTreeLine, index: number): number {
+  function getTargetWidth(
+    line: AsciiTreeLine,
+    index: number,
+    lineWidth: number
+  ): number {
     const lineOffset = line.isRoot ? (options.rootCommentOffset ?? 0) : 0;
 
     if (alignmentMode === 'folder-groups') {
@@ -88,7 +104,7 @@ export function renderAnnotatedAsciiTree(
     }
 
     if (alignmentMode === 'smart-column') {
-      return commentColumn + lineOffset;
+      return Math.max(commentColumn + lineOffset, lineWidth + gap);
     }
 
     return wholeTreeTargetWidth + lineOffset;
@@ -100,7 +116,7 @@ export function renderAnnotatedAsciiTree(
         return line.text;
       }
 
-      const comment = getTreeAnnotationText(annotations, line.path);
+      const comment = lineComments[index];
 
       if (!comment) {
         return line.text;
@@ -121,17 +137,13 @@ export function renderAnnotatedAsciiTree(
         )}${renderedComment}`;
       }
 
-      const targetWidth = getTargetWidth(line, index);
-      const shouldUseInlinePadding =
-        alignmentMode === 'smart-column' && lineWidth + gap > targetWidth;
-      const paddedText = shouldUseInlinePadding
-        ? padInlineAnnotatedAsciiLine(line, lineWidth, gap, gapPaddingMode)
-        : padMonospaceEnd(
-            line.text,
-            targetWidth,
-            gapPaddingMode,
-            TREE_ANNOTATION_TAB_WIDTH
-          );
+      const targetWidth = getTargetWidth(line, index, lineWidth);
+      const paddedText = padMonospaceEnd(
+        line.text,
+        targetWidth,
+        gapPaddingMode,
+        TREE_ANNOTATION_TAB_WIDTH
+      );
 
       return `${paddedText}${renderedComment}`;
     })
@@ -337,16 +349,22 @@ function getAnnotatedAsciiParentGroupKey(line: AsciiTreeLine): string {
  * Computes the maximum line width within each folder group for alignment
  * @param lines Rendered ASCII tree lines
  * @param lineWidths Monospace widths matching each line by index
+ * @param lineComments Annotation text matching each line by index
  * @returns Per-line group width used to align folder-grouped annotations
  */
 function createFolderAnnotationGroupWidths(
   lines: AsciiTreeLine[],
-  lineWidths: number[]
+  lineWidths: number[],
+  lineComments: string[]
 ): number[] {
   const groupWidths = new Map<string, number>();
   const groupKeys = lines.map(getAnnotatedAsciiParentGroupKey);
 
   groupKeys.forEach((groupKey, index) => {
+    if (!lineComments[index]) {
+      return;
+    }
+
     groupWidths.set(
       groupKey,
       Math.max(groupWidths.get(groupKey) ?? 0, lineWidths[index] ?? 0)

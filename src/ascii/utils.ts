@@ -1,3 +1,5 @@
+import stringWidth from 'string-width';
+
 /**
  * Date: 2026-06-07
  * Desc: Provides monospace width and padding helpers for ASCII output
@@ -5,50 +7,8 @@
 
 export type MonospacePaddingMode = 'spaces' | 'tabs';
 
-/**
- * Checks whether a code point is a zero-width combining mark
- * @param codePoint Unicode code point to test
- * @returns True when the code point renders with zero width
- */
-function isCombiningCodePoint(codePoint: number): boolean {
-  return (
-    (codePoint >= 0x0300 && codePoint <= 0x036f) ||
-    (codePoint >= 0x1ab0 && codePoint <= 0x1aff) ||
-    (codePoint >= 0x1dc0 && codePoint <= 0x1dff) ||
-    (codePoint >= 0x20d0 && codePoint <= 0x20ff) ||
-    (codePoint >= 0xfe20 && codePoint <= 0xfe2f)
-  );
-}
-
-/**
- * Checks whether a code point renders as a full-width (two-column) glyph
- * @param codePoint Unicode code point to test
- * @returns True when the code point occupies two monospace columns
- */
-function isFullWidthCodePoint(codePoint: number): boolean {
-  if (codePoint < 0x1100) {
-    return false;
-  }
-
-  return (
-    codePoint <= 0x115f ||
-    codePoint === 0x2329 ||
-    codePoint === 0x232a ||
-    (codePoint >= 0x2e80 && codePoint <= 0x3247 && codePoint !== 0x303f) ||
-    (codePoint >= 0x3250 && codePoint <= 0x4dbf) ||
-    (codePoint >= 0x4e00 && codePoint <= 0xa4c6) ||
-    (codePoint >= 0xa960 && codePoint <= 0xa97c) ||
-    (codePoint >= 0xac00 && codePoint <= 0xd7a3) ||
-    (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
-    (codePoint >= 0xfe10 && codePoint <= 0xfe19) ||
-    (codePoint >= 0xfe30 && codePoint <= 0xfe6b) ||
-    (codePoint >= 0xff01 && codePoint <= 0xff60) ||
-    (codePoint >= 0xffe0 && codePoint <= 0xffe6) ||
-    (codePoint >= 0x1b000 && codePoint <= 0x1b2ff) ||
-    (codePoint >= 0x1f200 && codePoint <= 0x1f251) ||
-    (codePoint >= 0x20000 && codePoint <= 0x3fffd)
-  );
-}
+// Printable ASCII and box-drawing connectors always occupy one terminal column
+const NARROW_TREE_TEXT_PATTERN = /^[\x20-\x7e\u2500-\u257f]*$/u;
 
 /**
  * Computes the columns advanced by a tab at the current width
@@ -57,7 +17,9 @@ function isFullWidthCodePoint(codePoint: number): boolean {
  * @returns Number of columns the tab advances
  */
 function getTabStopAdvance(currentWidth: number, tabWidth: number): number {
-  const normalizedTabWidth = Math.max(1, Math.round(tabWidth));
+  const normalizedTabWidth = Number.isFinite(tabWidth)
+    ? Math.max(1, Math.round(tabWidth))
+    : 4;
   const tabRemainder = currentWidth % normalizedTabWidth;
 
   return tabRemainder === 0
@@ -74,20 +36,15 @@ function getTabStopAdvance(currentWidth: number, tabWidth: number): number {
 export function getMonospaceTextWidth(text: string, tabWidth = 4): number {
   let width = 0;
 
-  for (const character of text) {
-    if (character === '\t') {
+  text.split('\t').forEach((segment, index, segments) => {
+    width += NARROW_TREE_TEXT_PATTERN.test(segment)
+      ? segment.length
+      : stringWidth(segment);
+
+    if (index < segments.length - 1) {
       width += getTabStopAdvance(width, tabWidth);
-      continue;
     }
-
-    const codePoint = character.codePointAt(0);
-
-    if (codePoint === undefined || isCombiningCodePoint(codePoint)) {
-      continue;
-    }
-
-    width += isFullWidthCodePoint(codePoint) ? 2 : 1;
-  }
+  });
 
   return width;
 }

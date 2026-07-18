@@ -149,7 +149,7 @@ const tree = await new FileSystemReader(
 ).read({ showHidden: false });
 ```
 
-ZIP support is powered by `fflate`, which is the only runtime dependency of the root package.
+The root package uses `fflate` for ZIP support and `string-width` for Unicode-aware terminal column measurement in annotated ASCII output.
 
 ## Remote Repository Adapter
 

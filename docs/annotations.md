@@ -163,6 +163,32 @@ const options = createAnnotatedAsciiTreeRenderOptionsFromConfig({
 });
 ```
 
+### Annotation Layout Strategies
+
+`alignmentMode` keeps four stable mode identifiers. Let `C` be the preferred `commentColumn`, `G` be `gap`, and `W` be the terminal display width of one rendered tree line.
+
+| Mode | Comment position |
+| --- | --- |
+| `smart-column` | Each annotated line uses `max(C, W + G)`. Long paths fall back independently and do not move other comments. |
+| `whole-tree` | All annotated lines share `max(C, longest annotated W + G)`. |
+| `folder-groups` | Annotated siblings under the same parent share `max(C, longest annotated W in that group + G)`. Each parent group is independent. |
+| `inline` | Each comment follows its path at `W + G`, without column alignment. |
+
+Only non-synthetic lines that actually have annotations participate in `whole-tree` and `folder-groups` width calculations. An unannotated long path therefore does not add whitespace to unrelated comments. Synthetic root lines are never annotated or measured for annotation alignment.
+
+The preferred comment column defaults to `40`. The gap defaults to `2` and is normalized to a finite integer of at least `2`. Inline layout should set the gap explicitly:
+
+```ts
+const options = createAnnotatedAsciiTreeRenderOptionsFromConfig({
+  alignmentMode: 'inline',
+  gap: 2,
+});
+```
+
+For backward compatibility, `alignmentMode: 'inline'` still treats an explicitly supplied `commentColumn` as the gap when `gap` is omitted. This legacy fallback is deprecated; new integrations should keep the aligned comment column and inline gap as separate settings. `rootCommentOffset` continues to shift aligned root targets and does not affect inline layout. In `smart-column`, a root whose own width plus gap exceeds the shifted preferred column still uses the long-line fallback, matching prior behavior.
+
+Widths are measured as terminal columns. CJK and full-width characters occupy two columns, combining sequences occupy one rendered grapheme width, emoji sequences use their rendered terminal width, and tabs advance to four-column tab stops. This makes exported text deterministic in terminal-style monospace rendering. Browsers and Markdown editors can still show small pixel differences when their monospace font falls back to a different CJK or emoji font; that font-level behavior does not change the terminal column calculation.
+
 Parse edited annotated ASCII back into patches:
 
 ```ts
