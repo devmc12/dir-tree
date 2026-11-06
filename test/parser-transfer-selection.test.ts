@@ -8,6 +8,7 @@ import { renderAnnotatedAsciiTree } from '../src/annotations';
 import {
   parseImportedMarkdownDocumentTreeText,
   parseImportedTreeText,
+  type ImportedTreeFormat,
 } from '../src/parser';
 import {
   createTreeSelectionModel,
@@ -69,6 +70,112 @@ const unicodeRoundTripTree = {
 };
 
 describe('parser utilities', () => {
+  it.each<{
+    format: ImportedTreeFormat;
+    text: string;
+  }>([
+    {
+      format: 'tree-json',
+      text: '{"name":"root","children":[{"name":"same.txt"},{"name":"same.txt"}]}',
+    },
+    {
+      format: 'tree-xml',
+      text: '<tree><dir name="root"><file name="same.txt"/><dir name="same.txt"/></dir></tree>',
+    },
+    {
+      format: 'tree-html',
+      text: '<ul><li>root<ul><li>same.txt</li><li>same.txt</li></ul></li></ul>',
+    },
+    {
+      format: 'markdown-list',
+      text: '- root\n  - same.txt\n  - same.txt',
+    },
+    {
+      format: 'ascii',
+      text: 'root\n├── same.txt\n└── same.txt',
+    },
+  ])('rejects a repeated path in $format', ({ format, text }) => {
+    expect(() => parseImportedTreeText(text, 'root', { format })).toThrow(
+      expect.objectContaining({
+        code: 'duplicate_tree_path',
+        path: 'root/same.txt',
+        ...(format === 'markdown-list' ? { line: 3 } : {}),
+      })
+    );
+  });
+
+  it('detects collisions after name cleaning and before merging comments', () => {
+    expect(() =>
+      parseImportedTreeText(
+        '{"name":"root","children":[{"name":"a:b.txt","comment":"first"},{"name":"ab.txt","comment":"second"}]}',
+        'root'
+      )
+    ).toThrow(
+      expect.objectContaining({
+        code: 'duplicate_tree_path',
+        path: 'root/ab.txt',
+      })
+    );
+  });
+
+  it('reports conflicts in fenced Markdown using the document line', () => {
+    const content = [
+      'Title',
+      '',
+      '```text',
+      '',
+      '- root',
+      '  - same.txt',
+      '  - same.txt',
+      '```',
+      '',
+      '```text',
+      'another tree',
+      '```',
+    ].join('\n');
+
+    expect(() =>
+      parseImportedMarkdownDocumentTreeText(content, 'root')
+    ).toThrow(
+      expect.objectContaining({
+        code: 'duplicate_tree_path',
+        path: 'root/same.txt',
+        line: 7,
+      })
+    );
+  });
+
+  it('preserves same names under distinct parents', () => {
+    const parsed = parseImportedTreeText(
+      'root\n├── a/\n│   └── index.ts\n└── b/\n    └── index.ts',
+      'root'
+    );
+
+    expect(parsed.tree.children?.map(node => node.children?.[0]?.path)).toEqual(
+      ['root/a/index.ts', 'root/b/index.ts']
+    );
+  });
+
+  it('returns a structured error for invalid JSON children and XML files with children', () => {
+    expect(() =>
+      parseImportedTreeText('{"name":"root","children":"invalid"}', 'root')
+    ).toThrow(expect.objectContaining({ code: 'invalid_tree', path: 'root' }));
+
+    expect(() =>
+      parseImportedTreeText(
+        '{"name":"root","kind":"file","children":[{"name":"child"}]}',
+        'root'
+      )
+    ).toThrow(expect.objectContaining({ code: 'invalid_tree', path: 'root' }));
+
+    expect(() =>
+      parseImportedTreeText(
+        '<tree><file name="root"><file name="child"/></file></tree>',
+        'root'
+      )
+    ).toThrow(expect.objectContaining({ code: 'invalid_tree', path: 'root' }));
+  });
+
   it('round-trips the default Unicode ASCII renderer output', () => {
     const renderedTree = renderAsciiTree(unicodeRoundTripTree);
     const parsedTree = parseImportedTreeText(renderedTree, 'project', {
@@ -232,6 +339,39 @@ describe('parser utilities', () => {
 });
 
 describe('transfer utilities', () => {
+  it('rejects normalized duplicates in annotated JSON transfers', () => {
+    const input = {
+      name: 'root',
+      kind: 'directory',
+      children: [
+        { name: 'same.txt ', kind: 'file', comment: 'first' },
+        { name: 'same.txt', kind: 'directory', visibility: 'hidden' },
+      ],
+    };
+
+    expect(() => parseImportedFileTreeJson(JSON.stringify(input))).toThrow(
+      expect.objectContaining({
+        code: 'duplicate_tree_path',
+        path: 'root/same.txt',
+      })
+    );
+  });
+
+  it('rejects path separators but preserves platform-specific filename characters', () => {
+    const root = { name: 'root', kind: 'directory' };
+    const file = { name: 'a:b.txt', kind: 'file' };
+    const parsed = parseImportedFileTreeJson(
+      JSON.stringify({ ...root, children: [file] })
+    );
+
+    expect(parsed.tree.children?.[0]?.path).toBe('root/a:b.txt');
+    expect(() =>
+      parseImportedFileTreeJson(
+        JSON.stringify({ ...root, children: [{ ...file, name: 'a/b.txt' }] })
+      )
+    ).toThrow(expect.objectContaining({ code: 'invalid_tree' }));
+  });
+
   it('exports JSON without annotations or visibility options', () => {
     const rawJson = createExportedFileTreeJson({
       name: 'project',

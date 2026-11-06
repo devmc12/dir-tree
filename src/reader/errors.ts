@@ -14,17 +14,18 @@ export type FileTreeErrorCode =
 export class FileTreeError extends Error {
   readonly code: FileTreeErrorCode;
   readonly path?: string;
+  readonly line?: number;
 
   /**
    * Creates a tree error with a stable code and optional tree-relative path
    * @param code Category callers can check without parsing the message
    * @param message Description of the failure
-   * @param options Optional tree-relative path and underlying cause
+   * @param options Optional path, one-based source line, and underlying cause
    */
   constructor(
     code: FileTreeErrorCode,
     message: string,
-    options?: { cause?: unknown; path?: string }
+    options?: { cause?: unknown; path?: string; line?: number }
   ) {
     super(message, options);
     this.name = 'FileTreeError';
@@ -32,6 +33,10 @@ export class FileTreeError extends Error {
 
     if (options?.path !== undefined) {
       this.path = options.path;
+    }
+
+    if (options?.line !== undefined) {
+      this.line = options.line;
     }
   }
 }

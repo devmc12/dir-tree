@@ -1,5 +1,6 @@
 import type { FileNode } from '../reader/types';
-import { buildFileTreeChildPath } from '../tree';
+import { FileTreeError } from '../reader/errors';
+import { createImportedTreeNode } from '../reader/importedNode';
 import {
   type TreeAnnotationMap,
   TREE_ANNOTATION_TEMPLATE_PLACEHOLDER,
@@ -17,6 +18,7 @@ interface ImportedTreeEntry {
   comment: string | null;
   label: string;
   level: number;
+  line?: number;
 }
 
 interface ImportedJsonNode extends Record<string, unknown> {
@@ -136,8 +138,12 @@ export function parseImportedTreeJson(
 
   try {
     parsedValue = JSON.parse(rawText);
-  } catch {
-    throw new Error('JSON content could not be parsed');
+  } catch (cause) {
+    throw new FileTreeError(
+      'invalid_tree',
+      'JSON content could not be parsed',
+      { cause }
+    );
   }
 
   const rootCandidates = Array.isArray(parsedValue)
@@ -147,10 +153,14 @@ export function parseImportedTreeJson(
       : [];
 
   if (rootCandidates.length === 0) {
-    throw new Error('JSON content does not contain recognizable tree nodes');
+    throw new FileTreeError(
+      'invalid_tree',
+      'JSON content does not contain recognizable tree nodes'
+    );
   }
 
   const annotations: TreeAnnotationMap = {};
+  const paths = new Set<string>();
 
   if (rootCandidates.length === 1) {
     return {
@@ -158,28 +168,25 @@ export function parseImportedTreeJson(
         rootCandidates[0],
         fallbackRootName,
         '',
-        annotations
+        annotations,
+        paths
       ),
       annotations,
     };
   }
 
-  return {
-    tree: {
-      name: fallbackRootName,
-      path: fallbackRootName,
-      kind: 'directory',
-      children: rootCandidates.map(candidate =>
-        normalizeImportedJsonNode(
-          candidate,
-          fallbackRootName,
-          fallbackRootName,
-          annotations
-        )
-      ),
-    },
-    annotations,
-  };
+  const tree = createImportedTreeNode(paths, fallbackRootName, 'directory');
+  tree.children = rootCandidates.map(candidate =>
+    normalizeImportedJsonNode(
+      candidate,
+      fallbackRootName,
+      tree.path,
+      annotations,
+      paths
+    )
+  );
+
+  return { tree, annotations };
 }
 
 /**
@@ -214,7 +221,10 @@ export function parseImportedTreeXml(
   const firstElement = rootElements[0];
 
   if (!firstElement) {
-    throw new Error('XML content does not contain recognizable tree nodes');
+    throw new FileTreeError(
+      'invalid_tree',
+      'XML content does not contain recognizable tree nodes'
+    );
   }
 
   const candidateElements =
@@ -223,10 +233,14 @@ export function parseImportedTreeXml(
       : rootElements.filter(isImportedTreeNodeElement);
 
   if (candidateElements.length === 0) {
-    throw new Error('XML content does not contain recognizable tree nodes');
+    throw new FileTreeError(
+      'invalid_tree',
+      'XML content does not contain recognizable tree nodes'
+    );
   }
 
   const annotations: TreeAnnotationMap = {};
+  const paths = new Set<string>();
 
   if (candidateElements.length === 1) {
     return {
@@ -234,28 +248,25 @@ export function parseImportedTreeXml(
         candidateElements[0]!,
         fallbackRootName,
         '',
-        annotations
+        annotations,
+        paths
       ),
       annotations,
     };
   }
 
-  return {
-    tree: {
-      name: fallbackRootName,
-      path: fallbackRootName,
-      kind: 'directory',
-      children: candidateElements.map(element =>
-        normalizeImportedMarkupTreeElement(
-          element,
-          fallbackRootName,
-          fallbackRootName,
-          annotations
-        )
-      ),
-    },
-    annotations,
-  };
+  const tree = createImportedTreeNode(paths, fallbackRootName, 'directory');
+  tree.children = candidateElements.map(element =>
+    normalizeImportedMarkupTreeElement(
+      element,
+      fallbackRootName,
+      tree.path,
+      annotations,
+      paths
+    )
+  );
+
+  return { tree, annotations };
 }
 
 /**
@@ -308,7 +319,10 @@ export function parseImportedTreeHtml(
   const plainText = normalizeHtmlText(stripMarkupTags(rawText));
 
   if (!plainText) {
-    throw new Error('HTML content does not contain a recognizable tree');
+    throw new FileTreeError(
+      'invalid_tree',
+      'HTML content does not contain a recognizable tree'
+    );
   }
 
   return parseImportedAsciiTreeText(plainText, fallbackRootName, options);
@@ -359,8 +373,10 @@ export function parseImportedMarkdownListTree(
       const matchedLine = line.text.match(MARKDOWN_LIST_ITEM_PATTERN);
 
       if (!matchedLine) {
-        throw new Error(
-          `Line ${line.lineNumber} is not a valid Markdown list item`
+        throw new FileTreeError(
+          'invalid_tree',
+          `Line ${line.lineNumber} is not a valid Markdown list item`,
+          { line: line.lineNumber }
         );
       }
 
@@ -373,6 +389,7 @@ export function parseImportedMarkdownListTree(
         comment: extractedComment.comment,
         label: extractedComment.text,
         level: getIndentWidth(matchedLine[1] ?? ''),
+        line: line.lineNumber,
       };
     });
 
@@ -416,7 +433,7 @@ export function parseImportedAsciiTreeText(
     .filter(line => !isIgnorableAsciiTreeLine(line));
 
   if (lines.length === 0) {
-    throw new Error('Imported content is empty');
+    throw new FileTreeError('invalid_tree', 'Imported content is empty');
   }
 
   return buildImportedTreeFromEntries(
@@ -446,7 +463,27 @@ export function parseImportedMarkdownDocumentTreeText(
 
     try {
       return parseImportedTreeText(candidateText, fallbackRootName, options);
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof FileTreeError &&
+        error.code === 'duplicate_tree_path'
+      ) {
+        if (error.line === undefined) {
+          throw error;
+        }
+
+        const openingLineEnd = (match.index ?? 0) + match[0].indexOf('\n') + 1;
+        const leadingWhitespace = match[1]?.match(/^\s*/u)?.[0] ?? '';
+        const linesBeforeCandidate =
+          (rawText.slice(0, openingLineEnd) + leadingWhitespace).split('\n')
+            .length - 1;
+
+        throw new FileTreeError(error.code, error.message, {
+          ...(error.path === undefined ? {} : { path: error.path }),
+          line: linesBeforeCandidate + error.line,
+        });
+      }
+
       // Continue scanning later candidates
     }
   }
@@ -600,13 +637,15 @@ function isImportedTreeFileTag(tagName: string): boolean {
  * @param fallbackRootName Root name used when attributes omit a name
  * @param parentPath Path of the parent node
  * @param annotations Annotation map updated with extracted comments
+ * @param paths Paths already claimed in this import
  * @returns Normalized file node
  */
 function normalizeImportedMarkupTreeElement(
   element: ParsedMarkupElement,
   fallbackRootName: string,
   parentPath: string,
-  annotations: TreeAnnotationMap
+  annotations: TreeAnnotationMap,
+  paths: Set<string>
 ): FileNode {
   const rawName =
     element.attributes.name ??
@@ -617,11 +656,16 @@ function normalizeImportedMarkupTreeElement(
   const kind: FileNode['kind'] = isImportedTreeDirectoryTag(element.tagName)
     ? 'directory'
     : 'file';
-  const node: FileNode = {
-    name,
-    path: parentPath ? buildFileTreeChildPath(parentPath, name) : name,
-    kind,
-  };
+  const node = createImportedTreeNode(paths, name, kind, parentPath);
+  const children = element.children.filter(isImportedTreeNodeElement);
+
+  if (kind === 'file' && children.length > 0) {
+    throw new FileTreeError(
+      'invalid_tree',
+      'A file node cannot contain children',
+      { path: node.path }
+    );
+  }
   const size = parseOptionalNumber(element.attributes.size);
   const lastModified = parseOptionalNumber(
     element.attributes.lastmodified ?? element.attributes['last-modified']
@@ -642,16 +686,15 @@ function normalizeImportedMarkupTreeElement(
   );
 
   if (kind === 'directory') {
-    node.children = element.children
-      .filter(isImportedTreeNodeElement)
-      .map(child =>
-        normalizeImportedMarkupTreeElement(
-          child,
-          fallbackRootName,
-          node.path,
-          annotations
-        )
-      );
+    node.children = children.map(child =>
+      normalizeImportedMarkupTreeElement(
+        child,
+        fallbackRootName,
+        node.path,
+        annotations,
+        paths
+      )
+    );
   }
 
   return node;
@@ -854,7 +897,10 @@ function buildImportedTreeFromEntries(
   fallbackRootName: string
 ): ParsedImportedTree {
   if (entries.length === 0) {
-    throw new Error('Imported content does not contain parseable tree nodes');
+    throw new FileTreeError(
+      'invalid_tree',
+      'Imported content does not contain parseable tree nodes'
+    );
   }
 
   const normalizedEntries = promoteSingleTopLevelEntry(
@@ -866,12 +912,15 @@ function buildImportedTreeFromEntries(
     rootEntry?.label ?? fallbackRootName,
     fallbackRootName
   );
-  const root: FileNode = {
-    name: rootName,
-    path: rootName,
-    kind: 'directory',
-    children: [],
-  };
+  const paths = new Set<string>();
+  const root = createImportedTreeNode(
+    paths,
+    rootName,
+    'directory',
+    '',
+    rootEntry?.line
+  );
+  root.children = [];
   const annotations: TreeAnnotationMap = {};
   const stack: Array<{ level: number; node: FileNode }> = [
     { level: -1, node: root },
@@ -897,11 +946,13 @@ function buildImportedTreeFromEntries(
         : isLikelyFileName(name)
           ? 'file'
           : 'directory';
-    const node: FileNode = {
+    const node = createImportedTreeNode(
+      paths,
       name,
-      path: buildFileTreeChildPath(parent.path, name),
       kind,
-    };
+      parent.path,
+      entry.line
+    );
 
     if (kind === 'directory') {
       node.children = [];
@@ -1097,16 +1148,20 @@ function extractTemplateComment(
  * @param fallbackRootName Root name used when the node omits one
  * @param parentPath Path of the parent node
  * @param annotations Annotation map updated with extracted comments
+ * @param paths Paths already claimed in this import
  * @returns Normalized file node
  */
 function normalizeImportedJsonNode(
   value: unknown,
   fallbackRootName: string,
   parentPath: string,
-  annotations: TreeAnnotationMap
+  annotations: TreeAnnotationMap,
+  paths: Set<string>
 ): FileNode {
   if (!isRecordValue(value)) {
-    throw new Error('JSON tree nodes must be objects');
+    throw new FileTreeError('invalid_tree', 'JSON tree nodes must be objects', {
+      path: parentPath,
+    });
   }
 
   const importedNode = value as ImportedJsonNode;
@@ -1121,14 +1176,30 @@ function normalizeImportedJsonNode(
   const rawKind =
     getOptionalStringField(importedNode, ['type', 'kind'])?.toLowerCase() ?? '';
   const kind: FileNode['kind'] =
-    rawKind === 'directory' || rawKind === 'dir' || rawChildren !== undefined
+    rawKind !== 'file' &&
+    (rawKind === 'directory' || rawKind === 'dir' || rawChildren !== undefined)
       ? 'directory'
       : 'file';
-  const node: FileNode = {
-    name,
-    path: parentPath ? buildFileTreeChildPath(parentPath, name) : name,
-    kind,
-  };
+  const node = createImportedTreeNode(paths, name, kind, parentPath);
+
+  if (
+    rawChildren === undefined &&
+    (importedNode.contents !== undefined || importedNode.children !== undefined)
+  ) {
+    throw new FileTreeError(
+      'invalid_tree',
+      'A node children field must be an array',
+      { path: node.path }
+    );
+  }
+
+  if (kind === 'file' && rawChildren?.length) {
+    throw new FileTreeError(
+      'invalid_tree',
+      'A file node cannot contain children',
+      { path: node.path }
+    );
+  }
 
   if (typeof importedNode.size === 'number') {
     node.size = importedNode.size;
@@ -1150,7 +1221,13 @@ function normalizeImportedJsonNode(
 
   if (kind === 'directory') {
     node.children = (rawChildren ?? []).map(child =>
-      normalizeImportedJsonNode(child, fallbackRootName, node.path, annotations)
+      normalizeImportedJsonNode(
+        child,
+        fallbackRootName,
+        node.path,
+        annotations,
+        paths
+      )
     );
   }
 

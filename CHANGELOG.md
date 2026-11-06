@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Keep file nodes structural and remove `FileNode.handle` and `stripFileNodeHandles`; adapters retain their sources for repeated reads
 - Share tree lookup metadata between independently loaded ESM and CommonJS entries
 - Report unreadable ignore files with stable error codes and expose optional metadata warnings through `onWarning`
+- Reject duplicate normalized paths and invalid node structures before publishing imported trees
 
 ## 1.0.5
 

@@ -1,11 +1,9 @@
 import type { FileNode } from '../reader/types';
 import { copyFileNodeFields } from '../reader/utils';
+import { FileTreeError } from '../reader/errors';
+import { createImportedTreeNode } from '../reader/importedNode';
 import { type TreeAnnotationMap } from '../annotations';
-import {
-  buildFileTreeChildPath,
-  type FileTreeVisibilityMap,
-  type FileTreeVisibilityMode,
-} from '../tree';
+import type { FileTreeVisibilityMap, FileTreeVisibilityMode } from '../tree';
 
 /**
  * Date: 2026-06-07
@@ -109,15 +107,25 @@ export function parseImportedFileTreeJson(
 
   try {
     parsedValue = JSON.parse(rawText);
-  } catch {
-    throw new Error('JSON file content could not be parsed');
+  } catch (cause) {
+    throw new FileTreeError(
+      'invalid_tree',
+      'JSON file content could not be parsed',
+      { cause }
+    );
   }
 
   const annotations: TreeAnnotationMap = {};
   const hiddenItems: FileTreeVisibilityMap = {};
 
   return {
-    tree: normalizeImportedFileNode(parsedValue, '', annotations, hiddenItems),
+    tree: normalizeImportedFileNode(
+      parsedValue,
+      '',
+      annotations,
+      hiddenItems,
+      new Set()
+    ),
     annotations,
     hiddenItems,
   };
@@ -162,16 +170,21 @@ function createExportedFileTreeNode(
  * @param parentPath Parent tree path
  * @param annotations Annotation map updated with imported comments
  * @param visibility Visibility map updated with imported visibility
+ * @param paths Paths already claimed in this import
  * @returns Normalized file node
  */
 function normalizeImportedFileNode(
   value: unknown,
   parentPath: string,
   annotations: TreeAnnotationMap,
-  visibility: FileTreeVisibilityMap
+  visibility: FileTreeVisibilityMap,
+  paths: Set<string>
 ): FileNode {
   if (!isRecordValue(value)) {
-    throw new Error('JSON file content is not a valid file tree object');
+    throw new FileTreeError(
+      'invalid_tree',
+      'JSON file content is not a valid file tree object'
+    );
   }
 
   const importedNode = value as ImportedFileTreeNode;
@@ -179,20 +192,37 @@ function normalizeImportedFileNode(
   const kind = importedNode.kind;
 
   if (!name) {
-    throw new Error('A node in the JSON file is missing a valid name');
+    throw new FileTreeError(
+      'invalid_tree',
+      'A node in the JSON file is missing a valid name'
+    );
   }
 
   if (kind !== 'file' && kind !== 'directory') {
-    throw new Error(
+    throw new FileTreeError(
+      'invalid_tree',
       `A node in the JSON file has an invalid kind: ${String(kind)}`
     );
   }
 
-  const nextNode: FileNode = {
-    name,
-    path: parentPath ? buildFileTreeChildPath(parentPath, name) : name,
-    kind,
-  };
+  const nextNode = createImportedTreeNode(paths, name, kind, parentPath);
+  const children = importedNode.children;
+
+  if (children !== undefined && !Array.isArray(children)) {
+    throw new FileTreeError(
+      'invalid_tree',
+      'A node children field must be an array',
+      { path: nextNode.path }
+    );
+  }
+
+  if (kind === 'file' && children?.length) {
+    throw new FileTreeError(
+      'invalid_tree',
+      'A file node cannot contain children',
+      { path: nextNode.path }
+    );
+  }
 
   if (typeof importedNode.size === 'number') {
     nextNode.size = importedNode.size;
@@ -214,17 +244,14 @@ function normalizeImportedFileNode(
   appendImportedTreeVisibility(visibility, nextNode, importedNode.visibility);
 
   if (kind === 'directory') {
-    if (
-      importedNode.children !== undefined &&
-      !Array.isArray(importedNode.children)
-    ) {
-      throw new Error(
-        `The children field for directory node ${name} must be an array`
-      );
-    }
-
-    nextNode.children = (importedNode.children ?? []).map(child =>
-      normalizeImportedFileNode(child, nextNode.path, annotations, visibility)
+    nextNode.children = (children ?? []).map(child =>
+      normalizeImportedFileNode(
+        child,
+        nextNode.path,
+        annotations,
+        visibility,
+        paths
+      )
     );
   }
 
