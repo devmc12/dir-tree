@@ -1,3 +1,4 @@
+import { strFromU8 } from 'fflate';
 import type {
   FileNode,
   FileTreeItem,
@@ -194,10 +195,16 @@ export function parseCentralDirectory(
           )
         : null;
     const name = decodeFilename(nameBytes, (flags & 0x0800) !== 0, extraBytes);
+    const contentKey = strFromU8(nameBytes, (flags & 0x0800) === 0);
     const isDir =
       name.endsWith('/') || ((externalAttributes >> 16) & 0x4000) !== 0;
 
-    entries.push({ name, isDir, localOffset });
+    entries.push({
+      name,
+      ...(contentKey === name ? {} : { contentKey }),
+      isDir,
+      localOffset,
+    });
     position += 46 + nameLength + extraLength + commentLength;
   }
 

@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Reject tree moves that would create duplicate sibling paths while preserving same-parent reordering
 - Anchor legacy directory picker gitignore rules to the selected project root consistently with other adapters
 - Preserve directory-only gitignore rules and prevent excluded parent directories from being restored by child negations
+- Match decoded ZIP filenames to their original content keys, preserving GBK and Unicode path metadata instead of returning empty file data
 
 ## 1.0.4
 

@@ -48,7 +48,10 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
       throw new Error('Could not parse the ZIP file structure');
     }
 
-    const zipData = await this.unzipEntries(bytes);
+    const zipData = this.normalizeEntryNames(
+      await this.unzipEntries(bytes),
+      centralDirectoryEntries
+    );
     const root: FileNode = {
       name: this.zipName,
       path: this.zipName,
@@ -88,18 +91,24 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
 
       const parentPath = getParentPath(fullPath);
       const parentNode = this.getOrCreateDirectory(parentPath, nodeMap, root);
+      const fileData = zipData[entry.name];
+
+      if (!fileData) {
+        throw new Error('ZIP file content could not be matched to its entry');
+      }
+
       const fileNode: FileNode = {
         name: fullPath.substring(parentPath.length + 1),
         path: fullPath,
         kind: 'file',
         handle: {
           source: 'zip-file',
-          bytes: zipData[entry.name] ?? new Uint8Array(),
+          bytes: fileData,
         },
       };
 
       if (this.readFileMeta) {
-        fileNode.size = zipData[entry.name]?.length ?? 0;
+        fileNode.size = fileData.length;
       }
 
       parentNode.children?.push(fileNode);
@@ -166,6 +175,47 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
         resolve({ ...result });
       });
     });
+  }
+
+  /**
+   * Associates inflated bytes with the display names decoded from the central directory
+   * @param inflatedEntries Inflated bytes using the ZIP decoder's filename keys
+   * @param entries Central directory entries with display and content keys
+   * @returns Entry bytes indexed by the same names used for tree paths
+   */
+  private normalizeEntryNames(
+    inflatedEntries: Record<string, Uint8Array>,
+    entries: ZipEntry[]
+  ): Record<string, Uint8Array> {
+    const normalizedEntries: Record<string, Uint8Array> = Object.create(null);
+    const usedContentKeys = new Set<string>();
+
+    for (const entry of entries) {
+      const contentKey = entry.contentKey ?? entry.name;
+
+      if (
+        Object.prototype.hasOwnProperty.call(normalizedEntries, entry.name) ||
+        usedContentKeys.has(contentKey)
+      ) {
+        throw new Error('ZIP entries contain ambiguous duplicate filenames');
+      }
+
+      const fileData = Object.prototype.hasOwnProperty.call(
+        inflatedEntries,
+        contentKey
+      )
+        ? inflatedEntries[contentKey]
+        : undefined;
+
+      if (!fileData) {
+        throw new Error('ZIP file content could not be matched to its entry');
+      }
+
+      normalizedEntries[entry.name] = fileData;
+      usedContentKeys.add(contentKey);
+    }
+
+    return normalizedEntries;
   }
 
   /**
