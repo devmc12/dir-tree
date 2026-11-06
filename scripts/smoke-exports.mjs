@@ -33,6 +33,7 @@ const commonJsModules = [
 
 const requiredExports = [
   [root, 'FileSystemReader'],
+  [root, 'FileTreeError'],
   [root, 'attachFileTreeMetadata'],
   [root, 'createFileTreeFromSnapshot'],
   [root, 'createReadOptionsFromConfig'],
@@ -71,6 +72,7 @@ for (const [moduleExports, exportName] of requiredExports) {
 
 for (const [moduleExports, exportName] of [
   [commonJsModules[0], 'FileSystemReader'],
+  [commonJsModules[0], 'FileTreeError'],
   [commonJsModules[0], 'attachFileTreeMetadata'],
   [commonJsModules[0], 'createFileTreeFromSnapshot'],
   [commonJsModules[0], 'createReadOptionsFromConfig'],

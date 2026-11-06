@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Move browser directory adapters and dropped-entry types to the `/browser` entry
 - Keep file nodes structural and remove `FileNode.handle` and `stripFileNodeHandles`; adapters retain their sources for repeated reads
 - Share tree lookup metadata between independently loaded ESM and CommonJS entries
+- Report unreadable ignore files with stable error codes and expose optional metadata warnings through `onWarning`
 
 ## 1.0.5
 

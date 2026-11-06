@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { NodeFileSystemAdapter } from '../src/node';
@@ -14,6 +15,7 @@ import {
 } from '../src/browser';
 import {
   FileSystemReader,
+  FileTreeError,
   InMemoryFileTreeAdapter,
   RemoteRepositoryFileSystemAdapter,
   ZipFileSystemAdapter,
@@ -192,6 +194,160 @@ function createLocalDirectoryHandle(
 }
 
 describe('reader adapters', () => {
+  it('treats a missing Node ignore file as normal and a discovered unreadable file as fatal', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'dir-tree-ignore-'));
+    const rootName = basename(directory);
+
+    try {
+      await writeFile(join(directory, 'notes.txt'), 'notes');
+      const adapter = new NodeFileSystemAdapter(directory);
+      expect((await adapter.read()).children?.map(node => node.name)).toEqual([
+        'notes.txt',
+      ]);
+
+      await writeFile(join(directory, '.gitignore'), 'notes.txt');
+      const cause = Object.assign(new Error('denied'), { code: 'EACCES' });
+      const readFile = vi.spyOn(fs, 'readFile').mockRejectedValueOnce(cause);
+
+      try {
+        await expect(adapter.read()).rejects.toMatchObject({
+          name: 'FileTreeError',
+          code: 'gitignore_read_failed',
+          path: rootName + '/.gitignore',
+          cause,
+        });
+      } finally {
+        readFile.mockRestore();
+      }
+
+      expect((await adapter.read()).children).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects native reads when an existing ignore file cannot be read', async () => {
+    const ignore = createLocalFileHandle('.gitignore', 'notes.txt');
+    const handle = createLocalDirectoryHandle('project', [ignore]);
+    const adapter = new LocalFileSystemAdapter(
+      {},
+      handle as unknown as FileSystemDirectoryHandle
+    );
+
+    const denied = new DOMException('denied', 'NotAllowedError');
+    vi.spyOn(handle, 'getFileHandle').mockRejectedValueOnce(denied);
+    await expect(adapter.read()).rejects.toMatchObject({
+      code: 'gitignore_read_failed',
+      path: 'project/.gitignore',
+      cause: denied,
+    });
+
+    const disappeared = new DOMException('disappeared', 'NotFoundError');
+    vi.spyOn(ignore, 'getFile').mockRejectedValueOnce(disappeared);
+    await expect(adapter.read()).rejects.toMatchObject({
+      code: 'gitignore_read_failed',
+      cause: disappeared,
+    });
+  });
+
+  it('keeps a Node file node when optional stat metadata is unavailable', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'dir-tree-stat-'));
+    const stat = vi
+      .spyOn(fs, 'stat')
+      .mockRejectedValueOnce(new Error('denied'));
+    const onWarning = vi.fn();
+
+    try {
+      await writeFile(join(directory, 'notes.txt'), 'notes');
+      const tree = await new NodeFileSystemAdapter(directory).read({
+        readFileMeta: true,
+        onWarning,
+      });
+      const path = basename(directory) + '/notes.txt';
+
+      expect(tree.children).toEqual([
+        { kind: 'file', name: 'notes.txt', path },
+      ]);
+      expect(onWarning).toHaveBeenCalledExactlyOnceWith({
+        code: 'metadata_unavailable',
+        source: 'node',
+        operation: 'read_metadata',
+        path,
+      });
+    } finally {
+      stat.mockRestore();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects unreadable ignore rules in legacy picker and drop sources', async () => {
+    const cause = new DOMException('unreadable', 'NotReadableError');
+    const ignoreFile = createLegacyDirectoryFile('project/.gitignore', '');
+    vi.spyOn(ignoreFile, 'text').mockRejectedValueOnce(cause);
+    const droppedIgnore: DroppedFileSystemFileEntry = {
+      name: '.gitignore',
+      isDirectory: false,
+      isFile: true,
+      file(_success, fail) {
+        fail?.(cause);
+      },
+    };
+    const adapters = [
+      new LegacyDirectoryFilesAdapter([ignoreFile]),
+      new DroppedDirectoryEntryAdapter(
+        createDroppedDirectoryEntry('project', [droppedIgnore])
+      ),
+    ];
+
+    for (const adapter of adapters) {
+      await expect(adapter.read()).rejects.toMatchObject({
+        code: 'gitignore_read_failed',
+        path: 'project/.gitignore',
+        cause,
+      });
+    }
+  });
+
+  it('keeps nodes with unavailable metadata and reports only safe warning fields', async () => {
+    const file = createLocalFileHandle('notes.txt', 'notes');
+    const directory = createLocalDirectoryHandle('project', [file]);
+    const getFile = vi
+      .spyOn(file, 'getFile')
+      .mockRejectedValue(new Error('sensitive cause'));
+    const onWarning = vi.fn();
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const adapter = new LocalFileSystemAdapter(
+      { readFileMeta: true },
+      directory as unknown as FileSystemDirectoryHandle
+    );
+    const node = { kind: 'file', name: 'notes.txt', path: 'project/notes.txt' };
+
+    try {
+      expect((await adapter.read({ onWarning })).children).toEqual([node]);
+      expect((await adapter.read()).children).toEqual([node]);
+      expect(onWarning).toHaveBeenCalledExactlyOnceWith({
+        code: 'metadata_unavailable',
+        source: 'browser-directory',
+        operation: 'read_metadata',
+        path: 'project/notes.txt',
+      });
+      expect(log).not.toHaveBeenCalled();
+
+      const cancellation = new DOMException('cancelled', 'AbortError');
+      getFile.mockRejectedValueOnce(cancellation);
+      await expect(adapter.read({ onWarning })).rejects.toBe(cancellation);
+      expect(onWarning).toHaveBeenCalledTimes(1);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('exposes a stable code for an invalid ZIP archive', async () => {
+    const read = new ZipFileSystemAdapter(new Uint8Array([1, 2, 3])).read();
+    await expect(read).rejects.toBeInstanceOf(FileTreeError);
+    await expect(read).rejects.toMatchObject({ code: 'invalid_zip' });
+  });
+
   it('restores independent constructor defaults after a read override', async () => {
     const exclude = ['README.md'];
     const sort: SortOptions = {

@@ -3,6 +3,7 @@ import {
   type ReadContext,
 } from '../adapters/BaseFileSystemAdapter';
 import type { FileNode, ReadOptions } from '../reader/types';
+import { FileTreeError, throwReadFailure } from '../reader/errors';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
 /**
@@ -40,7 +41,8 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
     const context = this.createReadContext(options);
 
     if (this.files.length === 0) {
-      throw new Error(
+      throw new FileTreeError(
+        'read_failed',
         'The selected folder is empty, or the browser did not return any available files'
       );
     }
@@ -77,7 +79,8 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
     const firstFile = files[0];
 
     if (!firstFile) {
-      throw new Error(
+      throw new FileTreeError(
+        'read_failed',
         'The selected folder is empty, or the browser did not return any available files'
       );
     }
@@ -86,7 +89,8 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
     const rootName = firstRelativePath.split('/')[0];
 
     if (!rootName) {
-      throw new Error(
+      throw new FileTreeError(
+        'read_failed',
         'The browser did not return usable directory structure information'
       );
     }
@@ -111,7 +115,8 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
     const segments = normalizedRelativePath.split('/').filter(Boolean);
 
     if (segments.length < 2 || segments[0] !== rootName) {
-      throw new Error(
+      throw new FileTreeError(
+        'read_failed',
         'The browser did not return complete directory-relative paths'
       );
     }
@@ -144,11 +149,20 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
     const tasks = entries
       .filter(entry => entry.name === '.gitignore')
       .map(entry => async (): Promise<void> => {
-        this.registerGitignoreRules(
-          context,
-          entry.parentPath,
-          await entry.file.text()
-        );
+        try {
+          this.registerGitignoreRules(
+            context,
+            entry.parentPath,
+            await entry.file.text()
+          );
+        } catch (error) {
+          throwReadFailure(
+            'gitignore_read_failed',
+            'Could not read .gitignore',
+            entry.fullPath,
+            error
+          );
+        }
       });
 
     await this.executeTasks(context, tasks);

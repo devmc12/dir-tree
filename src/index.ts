@@ -4,6 +4,7 @@
  */
 
 export { FileSystemReader, FileSystemReader as Reader } from './reader';
+export { FileTreeError, type FileTreeErrorCode } from './reader/errors';
 export {
   attachFileTreeMetadata,
   createFileTreeFromSnapshot,
@@ -20,6 +21,7 @@ export type {
   GitignoreRule,
   ReadOptions,
   ReadOptionsConfig,
+  ReadWarning,
   SortBy,
   SortOptions,
   SortOrder,

@@ -4,6 +4,7 @@ import {
   type ReadContext,
 } from './BaseFileSystemAdapter';
 import type { FileNode, ReadOptions, ZipEntry } from '../reader/types';
+import { FileTreeError, throwReadFailure } from '../reader/errors';
 import {
   attachFileTreeMetadata,
   getParentPath,
@@ -42,17 +43,35 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     const context = this.createReadContext(options);
 
-    const bytes = await this.readZipBytes();
+    const bytes = await this.readZipBytes().catch((error: unknown) =>
+      throwReadFailure(
+        'read_failed',
+        'Could not read ZIP source',
+        this.zipName,
+        error
+      )
+    );
     const centralDirectoryEntries = parseCentralDirectory(
       bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
     );
 
     if (!centralDirectoryEntries) {
-      throw new Error('Could not parse the ZIP file structure');
+      throw new FileTreeError(
+        'invalid_zip',
+        'Could not parse the ZIP file structure',
+        { path: this.zipName }
+      );
     }
 
     const zipData = this.normalizeEntryNames(
-      await this.unzipEntries(bytes),
+      await this.unzipEntries(bytes).catch((error: unknown) =>
+        throwReadFailure(
+          'invalid_zip',
+          'Could not decompress the ZIP archive',
+          this.zipName,
+          error
+        )
+      ),
       centralDirectoryEntries
     );
     const root: FileNode = {
@@ -93,7 +112,11 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
       const fileData = zipData[entry.name];
 
       if (!fileData) {
-        throw new Error('ZIP file content could not be matched to its entry');
+        throw new FileTreeError(
+          'invalid_zip',
+          'ZIP file content could not be matched to its entry',
+          { path: fullPath }
+        );
       }
 
       const fileNode: FileNode = {
@@ -192,7 +215,11 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
         Object.prototype.hasOwnProperty.call(normalizedEntries, entry.name) ||
         usedContentKeys.has(contentKey)
       ) {
-        throw new Error('ZIP entries contain ambiguous duplicate filenames');
+        throw new FileTreeError(
+          'invalid_zip',
+          'ZIP entries contain ambiguous duplicate filenames',
+          { path: entry.name }
+        );
       }
 
       const fileData = Object.prototype.hasOwnProperty.call(
@@ -203,7 +230,11 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
         : undefined;
 
       if (!fileData) {
-        throw new Error('ZIP file content could not be matched to its entry');
+        throw new FileTreeError(
+          'invalid_zip',
+          'ZIP file content could not be matched to its entry',
+          { path: entry.name }
+        );
       }
 
       normalizedEntries[entry.name] = fileData;

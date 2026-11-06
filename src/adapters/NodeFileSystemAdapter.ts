@@ -5,6 +5,7 @@ import {
   type ReadContext,
 } from './BaseFileSystemAdapter';
 import type { Entry, FileNode, ReadOptions } from '../reader/types';
+import { throwReadFailure } from '../reader/errors';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
 /**
@@ -17,7 +18,7 @@ interface NodeFileSystemEntry extends Entry {
 }
 
 export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
-  private rootPath: string;
+  private readonly rootPath: string;
 
   /**
    * Creates an adapter for a Node.js filesystem directory path
@@ -46,10 +47,6 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
       children: [],
     };
 
-    if (context.options.useGitignore) {
-      await this.loadGitignore(context, absoluteRoot, rootName);
-    }
-
     const entries = await this.enumerateEntries(
       context,
       absoluteRoot,
@@ -75,7 +72,25 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
     absoluteDirPath: string,
     treeDirPath: string
   ): Promise<NodeFileSystemEntry[]> {
-    const dirents = await fs.readdir(absoluteDirPath, { withFileTypes: true });
+    const dirents = await fs
+      .readdir(absoluteDirPath, { withFileTypes: true })
+      .catch((error: unknown) =>
+        throwReadFailure(
+          'read_failed',
+          'Could not list directory entries',
+          treeDirPath,
+          error
+        )
+      );
+
+    if (
+      context.options.useGitignore &&
+      context.options.depth > 0 &&
+      dirents.some(dirent => dirent.name === '.gitignore')
+    ) {
+      await this.loadGitignore(context, absoluteDirPath, treeDirPath);
+    }
+
     const entries: NodeFileSystemEntry[] = [];
 
     for (const dirent of dirents) {
@@ -138,15 +153,10 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
       const { absolutePath } = entry.handle;
 
       if (entry.kind === 'directory') {
-        if (context.options.useGitignore) {
-          await this.loadGitignore(context, absolutePath, entry.path);
-        }
-
-        const childEntries = await this.enumerateEntries(
-          context,
-          absolutePath,
-          entry.path
-        );
+        const childEntries =
+          currentDepth + 1 >= context.options.depth
+            ? []
+            : await this.enumerateEntries(context, absolutePath, entry.path);
         const node: FileNode = {
           name: entry.name,
           path: entry.path,
@@ -202,15 +212,15 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
 
       node.size = stats.size;
       node.lastModified = stats.mtimeMs;
-    } catch {
-      // Keep the node usable when metadata access is unavailable
+    } catch (error) {
+      this.reportMetadataFailure(context, 'node', treePath, error);
     }
 
     return node;
   }
 
   /**
-   * Loads gitignore rules from a filesystem directory when present
+   * Reads the ignore file discovered in the directory listing
    * @param context Context of the current read
    * @param absoluteDirPath Absolute directory path to inspect
    * @param treeDirPath Tree-relative directory path
@@ -227,8 +237,13 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
       );
 
       this.registerGitignoreRules(context, treeDirPath, content);
-    } catch {
-      // Directories without .gitignore do not add rules
+    } catch (error) {
+      throwReadFailure(
+        'gitignore_read_failed',
+        'Could not read .gitignore',
+        `${treeDirPath}/.gitignore`,
+        error
+      );
     }
   }
 }

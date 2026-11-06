@@ -1,5 +1,11 @@
 import type { ReaderAdapter } from './IFileSystemAdapter';
-import type { FileNode, GitignoreRule, ReadOptions } from '../reader/types';
+import type {
+  FileNode,
+  GitignoreRule,
+  ReadOptions,
+  ReadWarning,
+} from '../reader/types';
+import { hasErrorName } from '../reader/errors';
 import {
   getParentPath,
   isPathExcluded,
@@ -12,8 +18,11 @@ import {
  * Desc: Provides shared read option handling for file system adapters
  */
 
-type EffectiveReadOptions = Required<Omit<ReadOptions, 'sort'>> &
-  Pick<ReadOptions, 'sort'>;
+type OptionalReadOptions = Pick<ReadOptions, 'sort' | 'onWarning'>;
+type EffectiveReadOptions = Required<
+  Omit<ReadOptions, keyof OptionalReadOptions>
+> &
+  OptionalReadOptions;
 
 export interface ReadContext {
   options: EffectiveReadOptions;
@@ -32,6 +41,7 @@ function resolveReadOptions(
 ): EffectiveReadOptions {
   const sort = overrides.sort ?? defaults.sort;
   const concurrency = overrides.concurrency ?? defaults.concurrency ?? false;
+  const onWarning = overrides.onWarning ?? defaults.onWarning;
 
   return {
     depth: overrides.depth ?? defaults.depth ?? Infinity,
@@ -43,6 +53,7 @@ function resolveReadOptions(
     concurrency:
       typeof concurrency === 'object' ? { ...concurrency } : concurrency,
     ...(sort === undefined ? {} : { sort: { ...sort } }),
+    ...(onWarning === undefined ? {} : { onWarning }),
   };
 }
 
@@ -74,6 +85,28 @@ export abstract class BaseFileSystemAdapter implements ReaderAdapter {
       options: resolveReadOptions(options, this.defaultOptions),
       gitignoreRules: new Map(),
     };
+  }
+
+  /**
+   * Reports an optional metadata failure without exposing the underlying error
+   * @throws The original cancellation error, or an error thrown by the callback
+   */
+  protected reportMetadataFailure(
+    context: ReadContext,
+    source: ReadWarning['source'],
+    path: string,
+    error: unknown
+  ): void {
+    if (hasErrorName(error, 'AbortError')) {
+      throw error;
+    }
+
+    context.options.onWarning?.({
+      code: 'metadata_unavailable',
+      operation: 'read_metadata',
+      source,
+      path,
+    });
   }
 
   /**

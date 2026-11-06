@@ -3,6 +3,7 @@ import {
   type ReadContext,
 } from '../adapters/BaseFileSystemAdapter';
 import type { FileNode, ReadOptions } from '../reader/types';
+import { throwReadFailure } from '../reader/errors';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
 /**
@@ -102,7 +103,15 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
       return [];
     }
 
-    const entryList = await this.readAllDirectoryEntries(dirEntry);
+    const entryList = await this.readAllDirectoryEntries(dirEntry).catch(
+      (error: unknown) =>
+        throwReadFailure(
+          'read_failed',
+          'Could not list directory entries',
+          currentDirPath,
+          error
+        )
+    );
 
     if (context.options.useGitignore) {
       await this.loadGitignoreFromEntries(context, entryList, currentDirPath);
@@ -248,8 +257,8 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
       if (file.type) {
         node.mimeType = file.type;
       }
-    } catch {
-      // Keep the node usable when dropped file metadata cannot be read
+    } catch (error) {
+      this.reportMetadataFailure(context, 'browser-drop', filePath, error);
     }
 
     return node;
@@ -314,8 +323,13 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
       const file = await this.readEntryFile(gitignoreEntry);
 
       this.registerGitignoreRules(context, dirRelPath, await file.text());
-    } catch {
-      // Directories with unreadable .gitignore files do not add rules
+    } catch (error) {
+      throwReadFailure(
+        'gitignore_read_failed',
+        'Could not read .gitignore',
+        `${dirRelPath}/.gitignore`,
+        error
+      );
     }
   }
 

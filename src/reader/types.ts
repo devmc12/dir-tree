@@ -45,6 +45,13 @@ export interface SortOptions {
   foldersFirst: boolean;
 }
 
+export interface ReadWarning {
+  code: 'metadata_unavailable';
+  source: 'node' | 'browser-directory' | 'browser-drop';
+  operation: 'read_metadata';
+  path: string;
+}
+
 export interface ReadOptions {
   depth?: number;
   sort?: SortOptions;
@@ -58,6 +65,7 @@ export interface ReadOptions {
         limit?: number;
       };
   mode?: 'read' | 'readwrite';
+  onWarning?: (warning: ReadWarning) => void;
 }
 
 export interface GitignoreRule {
