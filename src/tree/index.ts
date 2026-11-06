@@ -503,7 +503,8 @@ export function moveFileTreeNode(
 
   if (
     targetParent.node.path === source.node.path ||
-    targetParent.node.path.startsWith(`${source.node.path}/`)
+    targetParent.node.path.startsWith(`${source.node.path}/`) ||
+    hasFileNodeNameConflict(targetParent.node, source.node.name, dragPath)
   ) {
     return null;
   }
@@ -520,6 +521,7 @@ export function moveFileTreeNode(
     target.childIndex === null ? targetChildren.length : target.childIndex;
 
   if (
+    target.childIndex !== null &&
     source.parent.path === targetParent.node.path &&
     source.index < insertIndex
   ) {

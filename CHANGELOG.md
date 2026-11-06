@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Reject tree moves that would create duplicate sibling paths while preserving same-parent reordering
+
 ## 1.0.4
 
 - Excluded generated `release: vX.Y.Z` commits from GitHub Release note counts and Overview entries

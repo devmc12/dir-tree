@@ -495,6 +495,50 @@ describe('reader adapters', () => {
 });
 
 describe('tree utilities', () => {
+  it.each(['file', 'directory'] as const)(
+    'rejects moving a %s over an existing sibling name without mutating either tree',
+    kind => {
+      const tree: FileNode = {
+        name: 'project',
+        path: 'project',
+        kind: 'directory',
+        children: [
+          {
+            name: 'src',
+            path: 'project/src',
+            kind: 'directory',
+            children: [{ name: 'same', path: 'project/src/same', kind }],
+          },
+          { name: 'same', path: 'project/same', kind: 'file' },
+        ],
+      };
+      const before = JSON.stringify(tree);
+
+      expect(
+        moveFileTreeNode(tree, 'project/src/same', {
+          parentPath: 'project',
+          childIndex: null,
+        })
+      ).toBeNull();
+      expect(JSON.stringify(tree)).toBe(before);
+    }
+  );
+
+  it('still reorders a node within its current parent', () => {
+    const before = JSON.stringify(sampleTree);
+    const moved = moveFileTreeNode(sampleTree, 'project/src', {
+      parentPath: 'project',
+      childIndex: null,
+    });
+
+    expect(moved?.tree.children?.map(child => child.path)).toEqual([
+      'project/.env',
+      'project/README.md',
+      'project/src',
+    ]);
+    expect(JSON.stringify(sampleTree)).toBe(before);
+  });
+
   it('renames, creates, moves, and removes nodes without mutating the source', () => {
     const renamed = renameFileTreeNode(
       sampleTree,
