@@ -80,11 +80,3 @@ export interface Entry {
   kind: 'file' | 'directory';
   handle: unknown;
 }
-
-export interface ZipEntry {
-  name: string;
-  // ZIP decoder key when legacy bytes or Unicode path fields change the display name
-  contentKey?: string;
-  isDir: boolean;
-  localOffset: number;
-}

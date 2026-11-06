@@ -16,6 +16,7 @@ import {
 import {
   FileSystemReader,
   FileTreeError,
+  getFileTreeMetadata,
   InMemoryFileTreeAdapter,
   RemoteRepositoryFileSystemAdapter,
   ZipFileSystemAdapter,
@@ -194,6 +195,61 @@ function createLocalDirectoryHandle(
 }
 
 describe('reader adapters', () => {
+  it.each([
+    { concurrency: false, peak: 1 },
+    { concurrency: { limit: 2 }, peak: 2 },
+    { concurrency: true, peak: 20 },
+  ])(
+    'bounds nested directory metadata reads to $peak operations',
+    async ({ concurrency, peak }) => {
+      let active = 0;
+      let maxActive = 0;
+      const groups = Array.from({ length: 3 }, (_, group) =>
+        createLocalDirectoryHandle('group-' + group, [
+          createLocalDirectoryHandle(
+            'nested',
+            Array.from({ length: 10 }, (_, index) => {
+              const file = createLocalFileHandle('file-' + index, 'x');
+              const getFile = file.getFile;
+
+              file.getFile = async () => {
+                active += 1;
+                maxActive = Math.max(maxActive, active);
+
+                try {
+                  await new Promise<void>(resolve => setImmediate(resolve));
+                  return await getFile();
+                } finally {
+                  active -= 1;
+                }
+              };
+
+              return file;
+            })
+          ),
+        ])
+      );
+      const handle = createLocalDirectoryHandle('project', groups);
+      const tree = await new LocalFileSystemAdapter(
+        { concurrency, readFileMeta: true, useGitignore: false },
+        handle as unknown as FileSystemDirectoryHandle
+      ).read();
+
+      expect(getFileTreeMetadata(tree)?.stats.totalFiles).toBe(30);
+      expect(maxActive).toBe(peak);
+      expect(active).toBe(0);
+    }
+  );
+
+  it.each([0, -1, 1.5, NaN, Infinity])(
+    'rejects an invalid read concurrency limit: %s',
+    async limit => {
+      await expect(
+        new InMemoryFileTreeAdapter(sampleTree).read({ concurrency: { limit } })
+      ).rejects.toMatchObject({ code: 'invalid_read_option' });
+    }
+  );
+
   it('treats a missing Node ignore file as normal and a discovered unreadable file as fatal', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'dir-tree-ignore-'));
     const rootName = basename(directory);
@@ -406,26 +462,21 @@ describe('reader adapters', () => {
       showHidden: false,
       useGitignore: true,
     });
+    const unfilteredRead = adapter.read({
+      showHidden: true,
+      useGitignore: false,
+    });
+    release(bytes);
 
-    try {
-      const unfiltered = await adapter.read({
-        showHidden: true,
-        useGitignore: false,
-      });
-
-      expect(unfiltered.children?.map(child => child.name)).toEqual([
-        'src',
-        '.env',
-        '.gitignore',
-        'ignored.txt',
-        'notes.txt',
-      ]);
-      expect(unfiltered.children?.[0]?.children?.[0]?.name).toBe('index.ts');
-    } finally {
-      release(bytes);
-    }
-
-    const tree = await restricted;
+    const [tree, unfiltered] = await Promise.all([restricted, unfilteredRead]);
+    expect(unfiltered.children?.map(child => child.name)).toEqual([
+      'src',
+      '.env',
+      '.gitignore',
+      'ignored.txt',
+      'notes.txt',
+    ]);
+    expect(unfiltered.children?.[0]?.children?.[0]?.name).toBe('index.ts');
     expect(tree.children).toEqual([
       { name: 'src', path: 'archive.zip/src', kind: 'directory', children: [] },
     ]);

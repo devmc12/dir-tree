@@ -101,39 +101,41 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
     const entries: Entry[] = [];
 
     try {
-      for await (const [
-        ,
-        childHandle,
-      ] of dirHandle as IterableDirectoryHandle) {
-        const childPath = `${currentDirPath}/${childHandle.name}`;
+      await context.runIo(async () => {
+        for await (const [
+          ,
+          childHandle,
+        ] of dirHandle as IterableDirectoryHandle) {
+          const childPath = `${currentDirPath}/${childHandle.name}`;
 
-        if (!context.options.showHidden && childHandle.name.startsWith('.')) {
-          continue;
+          if (!context.options.showHidden && childHandle.name.startsWith('.')) {
+            continue;
+          }
+
+          if (this.isPathExcludedByPatterns(context, childPath)) {
+            continue;
+          }
+
+          if (
+            context.options.useGitignore &&
+            this.isGitIgnored(
+              context,
+              childPath,
+              currentDirPath,
+              childHandle.kind
+            )
+          ) {
+            continue;
+          }
+
+          entries.push({
+            name: childHandle.name,
+            path: childPath,
+            kind: childHandle.kind === 'directory' ? 'directory' : 'file',
+            handle: childHandle,
+          });
         }
-
-        if (this.isPathExcludedByPatterns(context, childPath)) {
-          continue;
-        }
-
-        if (
-          context.options.useGitignore &&
-          this.isGitIgnored(
-            context,
-            childPath,
-            currentDirPath,
-            childHandle.kind
-          )
-        ) {
-          continue;
-        }
-
-        entries.push({
-          name: childHandle.name,
-          path: childPath,
-          kind: childHandle.kind === 'directory' ? 'directory' : 'file',
-          handle: childHandle,
-        });
-      }
+      });
     } catch (error) {
       throwReadFailure(
         'read_failed',
@@ -280,7 +282,7 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
     }
 
     try {
-      const file = await handle.getFile();
+      const file = await context.runIo(() => handle.getFile());
       node.size = file.size;
       node.lastModified = file.lastModified;
 
@@ -309,7 +311,9 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
     let gitignoreHandle: FileSystemFileHandle;
 
     try {
-      gitignoreHandle = await dirHandle.getFileHandle('.gitignore');
+      gitignoreHandle = await context.runIo(() =>
+        dirHandle.getFileHandle('.gitignore')
+      );
     } catch (error) {
       if (hasErrorName(error, 'NotFoundError')) {
         return;
@@ -324,8 +328,10 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
     }
 
     try {
-      const file = await gitignoreHandle.getFile();
-      this.registerGitignoreRules(context, dirRelPath, await file.text());
+      const content = await context.runIo(async () =>
+        (await gitignoreHandle.getFile()).text()
+      );
+      this.registerGitignoreRules(context, dirRelPath, content);
     } catch (error) {
       throwReadFailure(
         'gitignore_read_failed',

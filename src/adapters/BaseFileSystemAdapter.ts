@@ -5,7 +5,8 @@ import type {
   ReadOptions,
   ReadWarning,
 } from '../reader/types';
-import { hasErrorName } from '../reader/errors';
+import { FileTreeError, hasErrorName } from '../reader/errors';
+import { createReadIoScheduler, type RunReadIo } from '../reader/concurrency';
 import {
   getParentPath,
   isPathExcluded,
@@ -27,7 +28,12 @@ type EffectiveReadOptions = Required<
 export interface ReadContext {
   options: EffectiveReadOptions;
   gitignoreRules: Map<string, GitignoreRule[]>;
+  concurrencyLimit: number;
+  runIo: RunReadIo;
 }
+
+// Default when the caller opts in without supplying an explicit bound
+const DEFAULT_READ_CONCURRENCY = 20;
 
 /**
  * Resolves options without retaining mutable configuration supplied by the caller
@@ -81,9 +87,16 @@ export abstract class BaseFileSystemAdapter implements ReaderAdapter {
    * @returns A context to pass to traversal and filtering helpers
    */
   protected createReadContext(options: Partial<ReadOptions> = {}): ReadContext {
+    const effectiveOptions = resolveReadOptions(options, this.defaultOptions);
+    const concurrencyLimit = this.parseConcurrency(
+      effectiveOptions.concurrency
+    );
+
     return {
-      options: resolveReadOptions(options, this.defaultOptions),
+      options: effectiveOptions,
       gitignoreRules: new Map(),
+      concurrencyLimit,
+      runIo: createReadIoScheduler(concurrencyLimit),
     };
   }
 
@@ -217,35 +230,33 @@ export abstract class BaseFileSystemAdapter implements ReaderAdapter {
     context: ReadContext,
     tasks: Array<() => Promise<T>>
   ): Promise<T[]> {
-    const limit = this.parseConcurrency(context.options.concurrency);
-
-    if (limit > 0) {
-      return await runConcurrent(tasks, limit);
-    }
-
-    const results: T[] = [];
-
-    for (const task of tasks) {
-      results.push(await task());
-    }
-
-    return results;
+    return await runConcurrent(tasks, context.concurrencyLimit);
   }
 
   /**
    * Converts public concurrency options into an internal numeric limit
    * @param concurrency Public concurrency option
-   * @returns Zero for sequential execution or a positive worker limit
+   * @returns One for sequential execution or a positive worker limit
+   * @throws FileTreeError when an explicit limit is not a positive integer
    */
   private parseConcurrency(concurrency: ReadOptions['concurrency']): number {
     if (!concurrency) {
-      return 0;
+      return 1;
     }
 
     if (concurrency === true) {
-      return 20;
+      return DEFAULT_READ_CONCURRENCY;
     }
 
-    return concurrency.limit ?? 20;
+    const limit = concurrency.limit ?? DEFAULT_READ_CONCURRENCY;
+
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new FileTreeError(
+        'invalid_read_option',
+        'Read concurrency limit must be a positive integer'
+      );
+    }
+
+    return limit;
   }
 }

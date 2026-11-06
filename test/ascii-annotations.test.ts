@@ -42,6 +42,51 @@ const tree: FileNode = {
   ],
 };
 
+describe('ordered annotation patches', () => {
+  it('preserves existing metadata until a deletion and applies repeated paths in order', () => {
+    const annotations: TreeAnnotationMap = {
+      'project/a': {
+        path: 'project/a',
+        comment: 'old',
+        source: 'ai',
+        syncStatus: 'local',
+        updatedAt: 1,
+      },
+    };
+
+    expect(applyTreeAnnotationPatches(annotations, [])).toBe(annotations);
+    expect(
+      applyTreeAnnotationPatches(annotations, [
+        { path: 'missing', comment: ' ' },
+      ])
+    ).toBe(annotations);
+
+    const result = applyTreeAnnotationPatches(annotations, [
+      { path: 'project/a', comment: ' changed ', updatedAt: 2 },
+      { path: 'project/b', comment: 'second', updatedAt: 3 },
+      { path: 'project/b', comment: '  ' },
+      { path: 'project/b', comment: ' replacement ', updatedAt: 4 },
+    ]);
+
+    expect(annotations['project/a']?.comment).toBe('old');
+    expect(annotations).not.toHaveProperty('project/b');
+    expect(result['project/a']).toMatchObject({
+      comment: 'changed',
+      source: 'ai',
+      updatedAt: 2,
+    });
+    expect(result['project/b']).toMatchObject({
+      comment: 'replacement',
+      source: 'manual',
+      syncStatus: 'local',
+      updatedAt: 4,
+    });
+    expect(
+      applyTreeAnnotationPatches(result, [{ path: 'project/b', comment: '' }])
+    ).not.toHaveProperty('project/b');
+  });
+});
+
 const alignmentTree: FileNode = {
   name: 'project',
   path: 'project',

@@ -61,47 +61,56 @@ export function applyTreeAnnotationPatch(
   annotations: TreeAnnotationMap,
   patch: TreeAnnotationPatch
 ): TreeAnnotationMap {
-  const normalizedComment = normalizeTreeAnnotationComment(patch.comment);
-
-  if (!normalizedComment) {
-    if (!annotations[patch.path]) {
-      return annotations;
-    }
-
-    const nextAnnotations = { ...annotations };
-    delete nextAnnotations[patch.path];
-    return nextAnnotations;
-  }
-
-  const currentEntry = annotations[patch.path];
-
-  return {
-    ...annotations,
-    [patch.path]: {
-      path: patch.path,
-      comment: normalizedComment,
-      source: patch.source ?? currentEntry?.source ?? 'manual',
-      syncStatus: patch.syncStatus ?? currentEntry?.syncStatus ?? 'local',
-      updatedAt: patch.updatedAt ?? Date.now(),
-    },
-  };
+  return applyTreeAnnotationPatches(annotations, [patch]);
 }
 
 /**
  * Applies a sequence of annotation patches in order
  * @param annotations Current annotation map
  * @param patches Annotation patches to apply
- * @returns New annotation map reflecting all patches
+ * @returns One copy of the map, or the original map when no patch changes it
  */
 export function applyTreeAnnotationPatches(
   annotations: TreeAnnotationMap,
   patches: TreeAnnotationPatch[]
 ): TreeAnnotationMap {
-  return patches.reduce(
-    (currentAnnotations, patch) =>
-      applyTreeAnnotationPatch(currentAnnotations, patch),
-    annotations
-  );
+  let result = annotations;
+
+  patches.forEach(patch => {
+    const comment = normalizeTreeAnnotationComment(patch.comment);
+    const current = Object.prototype.hasOwnProperty.call(result, patch.path)
+      ? result[patch.path]
+      : undefined;
+
+    if (!comment && !current) {
+      return;
+    }
+
+    if (result === annotations) {
+      result = { ...annotations };
+    }
+
+    if (!comment) {
+      delete result[patch.path];
+      return;
+    }
+
+    // Define an own data property even when the path is __proto__
+    Object.defineProperty(result, patch.path, {
+      value: {
+        path: patch.path,
+        comment,
+        source: patch.source ?? current?.source ?? 'manual',
+        syncStatus: patch.syncStatus ?? current?.syncStatus ?? 'local',
+        updatedAt: patch.updatedAt ?? Date.now(),
+      },
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  return result;
 }
 
 /**

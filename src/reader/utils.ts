@@ -1,4 +1,3 @@
-import { strFromU8 } from 'fflate';
 import type {
   FileNode,
   FileTreeItem,
@@ -6,7 +5,6 @@ import type {
   GitignoreRule,
   ReadOptions,
   SortOptions,
-  ZipEntry,
 } from './types';
 import { fileTreeMetadataKey } from './types';
 
@@ -15,201 +13,11 @@ import { fileTreeMetadataKey } from './types';
  * Desc: Provides reusable reader filtering, sorting, ZIP, and metadata helpers
  */
 
-// Text decoder cache keyed by encoding and fatal mode
-const decoders: Record<string, TextDecoder | null> = {};
-
 // Glob expression cache keyed by raw glob pattern
 const globRegexCache = new Map<string, RegExp>();
 
 // Exclude pattern regex cache keyed by pattern list
 const excludePatternRegexCache = new Map<string, RegExp[]>();
-
-/**
- * Returns a cached TextDecoder when the runtime supports the encoding
- * @param encoding Text encoding name
- * @param fatal Whether decoder errors should throw
- * @returns Cached decoder, or null when unavailable
- */
-function getDecoder(encoding: string, fatal = false): TextDecoder | null {
-  const key = `${encoding}:${fatal}`;
-
-  if (!(key in decoders)) {
-    try {
-      decoders[key] = new TextDecoder(encoding, { fatal });
-    } catch {
-      decoders[key] = null;
-    }
-  }
-
-  return decoders[key] ?? null;
-}
-
-/**
- * Returns a decoder or throws when the encoding is unavailable
- * @param encoding Text encoding name
- * @param fatal Whether decoder errors should throw
- * @returns Supported TextDecoder instance
- */
-function getRequiredDecoder(encoding: string, fatal = false): TextDecoder {
-  const decoder = getDecoder(encoding, fatal);
-
-  if (decoder) {
-    return decoder;
-  }
-
-  throw new Error(`TextDecoder for "${encoding}" is unavailable`);
-}
-
-/**
- * Decodes a ZIP entry filename using Unicode path fields and encoding fallbacks
- * @param nameBytes Raw filename bytes from the central directory
- * @param isUtf8Flag Whether the entry flags declare UTF-8 names
- * @param extraBytes Extra field bytes that may contain a Unicode path
- * @returns Decoded filename
- */
-export function decodeFilename(
-  nameBytes: Uint8Array,
-  isUtf8Flag: boolean,
-  extraBytes: Uint8Array | null
-): string {
-  if (extraBytes && extraBytes.length >= 4) {
-    const view = new DataView(
-      extraBytes.buffer,
-      extraBytes.byteOffset,
-      extraBytes.byteLength
-    );
-    let offset = 0;
-
-    while (offset + 4 <= extraBytes.length) {
-      const headerId = view.getUint16(offset, true);
-      const dataSize = view.getUint16(offset + 2, true);
-
-      if (headerId === 0x7075 && dataSize >= 5) {
-        const utf8Name = extraBytes.subarray(
-          offset + 4 + 1 + 4,
-          offset + 4 + dataSize
-        );
-
-        try {
-          return getRequiredDecoder('utf-8', true).decode(utf8Name);
-        } catch {
-          // Continue with fallback decoders when the Unicode path field fails
-        }
-      }
-
-      offset += 4 + dataSize;
-    }
-  }
-
-  if (isUtf8Flag) {
-    return getRequiredDecoder('utf-8').decode(nameBytes);
-  }
-
-  const hasHighByte = nameBytes.some(byte => byte > 0x7f);
-
-  if (!hasHighByte) {
-    return getRequiredDecoder('ascii').decode(nameBytes);
-  }
-
-  const utf8Candidate = getRequiredDecoder('utf-8').decode(nameBytes);
-
-  if (!utf8Candidate.includes('\uFFFD')) {
-    return utf8Candidate;
-  }
-
-  const fallbackEncodings = [
-    'gbk',
-    'big5',
-    'shift-jis',
-    'euc-kr',
-    'cp866',
-    'windows-1251',
-    'windows-1252',
-  ];
-
-  for (const encoding of fallbackEncodings) {
-    const decoder = getDecoder(encoding, true);
-
-    if (!decoder) {
-      continue;
-    }
-
-    try {
-      return decoder.decode(nameBytes);
-    } catch {
-      // Continue with the next decoder
-    }
-  }
-
-  return getRequiredDecoder('iso-8859-1').decode(nameBytes);
-}
-
-/**
- * Parses ZIP central directory entries from an archive buffer
- * @param arrayBuffer Full ZIP archive buffer
- * @returns Parsed entries, or null when the central directory is not found
- */
-export function parseCentralDirectory(
-  arrayBuffer: ArrayBufferLike
-): ZipEntry[] | null {
-  const view = new DataView(arrayBuffer);
-  const bytes = new Uint8Array(arrayBuffer);
-  const length = bytes.length;
-  const scanStart = Math.max(0, length - 65557);
-  let eocdOffset = -1;
-
-  for (let index = length - 22; index >= scanStart; index -= 1) {
-    if (view.getUint32(index, true) === 0x06054b50) {
-      eocdOffset = index;
-      break;
-    }
-  }
-
-  if (eocdOffset === -1) {
-    return null;
-  }
-
-  const centralDirectorySize = view.getUint32(eocdOffset + 12, true);
-  const centralDirectoryOffset = view.getUint32(eocdOffset + 16, true);
-  const entries: ZipEntry[] = [];
-  let position = centralDirectoryOffset;
-  const centralDirectoryEnd = centralDirectoryOffset + centralDirectorySize;
-
-  while (position < centralDirectoryEnd && position + 46 <= length) {
-    if (view.getUint32(position, true) !== 0x02014b50) {
-      break;
-    }
-
-    const flags = view.getUint16(position + 8, true);
-    const nameLength = view.getUint16(position + 28, true);
-    const extraLength = view.getUint16(position + 30, true);
-    const commentLength = view.getUint16(position + 32, true);
-    const localOffset = view.getUint32(position + 42, true);
-    const externalAttributes = view.getUint32(position + 38, true);
-    const nameBytes = bytes.subarray(position + 46, position + 46 + nameLength);
-    const extraBytes =
-      extraLength > 0
-        ? bytes.subarray(
-            position + 46 + nameLength,
-            position + 46 + nameLength + extraLength
-          )
-        : null;
-    const name = decodeFilename(nameBytes, (flags & 0x0800) !== 0, extraBytes);
-    const contentKey = strFromU8(nameBytes, (flags & 0x0800) === 0);
-    const isDir =
-      name.endsWith('/') || ((externalAttributes >> 16) & 0x4000) !== 0;
-
-    entries.push({
-      name,
-      ...(contentKey === name ? {} : { contentKey }),
-      isDir,
-      localOffset,
-    });
-    position += 46 + nameLength + extraLength + commentLength;
-  }
-
-  return entries;
-}
 
 /**
  * Compiles a glob pattern into a cached regular expression

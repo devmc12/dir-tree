@@ -1,16 +1,19 @@
-import { unzip } from 'fflate';
 import {
   BaseFileSystemAdapter,
   type ReadContext,
 } from './BaseFileSystemAdapter';
-import type { FileNode, ReadOptions, ZipEntry } from '../reader/types';
-import { FileTreeError, throwReadFailure } from '../reader/errors';
+import type { FileNode, ReadOptions } from '../reader/types';
+import { throwReadFailure } from '../reader/errors';
 import {
   attachFileTreeMetadata,
   getParentPath,
-  parseCentralDirectory,
   pruneAndSortTree,
 } from '../reader/utils';
+import {
+  parseCentralDirectory,
+  readZipEntryText,
+  type ZipEntry,
+} from '../reader/zip';
 
 /**
  * Date: 2026-06-07
@@ -19,13 +22,21 @@ import {
 
 export type ZipSource = Blob | ArrayBuffer | Uint8Array;
 
+interface ZipIndex {
+  bytes: Uint8Array;
+  entries: ZipEntry[];
+  ignoreFiles: Array<{ entry: ZipEntry; directory: string; depth: number }>;
+  ignoreContents: Map<string, string>;
+}
+
 export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
   private readonly zipName: string;
   private readonly zipSource: ZipSource;
+  private cachedIndex: Promise<ZipIndex> | undefined;
 
   /**
    * Creates an adapter for a ZIP archive source
-   * @param source ZIP bytes or browser Blob
+   * @param source Immutable Blob or mutable bytes read afresh on each call; do not modify bytes while reading
    * @param options Initial read options
    * @param name Optional root name for the archive tree
    */
@@ -36,44 +47,14 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
   }
 
   /**
-   * Reads the ZIP archive into a FileNode tree
-   * @param options Optional read option overrides applied before reading
+   * Builds a tree from validated ZIP metadata without inflating ordinary files
+   * @param options Optional overrides for this read
    * @returns Directory tree rooted at the archive name
+   * @throws FileTreeError for invalid ZIP metadata or unreadable ignore rules
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     const context = this.createReadContext(options);
-
-    const bytes = await this.readZipBytes().catch((error: unknown) =>
-      throwReadFailure(
-        'read_failed',
-        'Could not read ZIP source',
-        this.zipName,
-        error
-      )
-    );
-    const centralDirectoryEntries = parseCentralDirectory(
-      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-    );
-
-    if (!centralDirectoryEntries) {
-      throw new FileTreeError(
-        'invalid_zip',
-        'Could not parse the ZIP file structure',
-        { path: this.zipName }
-      );
-    }
-
-    const zipData = this.normalizeEntryNames(
-      await this.unzipEntries(bytes).catch((error: unknown) =>
-        throwReadFailure(
-          'invalid_zip',
-          'Could not decompress the ZIP archive',
-          this.zipName,
-          error
-        )
-      ),
-      centralDirectoryEntries
-    );
+    const archive = await this.getIndex();
     const root: FileNode = {
       name: this.zipName,
       path: this.zipName,
@@ -82,59 +63,40 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
     };
 
     if (context.options.useGitignore) {
-      this.loadGitignoreFromZip(context, zipData, centralDirectoryEntries);
+      this.loadGitignoreRules(context, archive);
     }
 
-    const nodeMap = new Map<string, FileNode>();
+    const directories = new Map<string, FileNode>([[root.path, root]]);
 
-    nodeMap.set(root.path, root);
-
-    centralDirectoryEntries.forEach(entry => {
-      const relativePath = entry.name.replace(/\/$/u, '');
-
-      if (!relativePath) {
-        return;
-      }
-
-      const fullPath = `${root.path}/${relativePath}`;
+    for (const entry of archive.entries) {
+      const fullPath = `${root.path}/${entry.path}`;
 
       if (this.isHiddenOrExcluded(context, fullPath, entry.isDir)) {
-        return;
+        continue;
       }
 
       if (entry.isDir) {
-        this.getOrCreateDirectory(fullPath, nodeMap, root);
-        return;
+        this.getOrCreateDirectory(fullPath, directories, root);
+        continue;
       }
 
       const parentPath = getParentPath(fullPath);
-      const parentNode = this.getOrCreateDirectory(parentPath, nodeMap, root);
-      const fileData = zipData[entry.name];
-
-      if (!fileData) {
-        throw new FileTreeError(
-          'invalid_zip',
-          'ZIP file content could not be matched to its entry',
-          { path: fullPath }
-        );
-      }
-
-      const fileNode: FileNode = {
-        name: fullPath.substring(parentPath.length + 1),
+      const parent = this.getOrCreateDirectory(parentPath, directories, root);
+      const node: FileNode = {
+        name: fullPath.slice(parentPath.length + 1),
         path: fullPath,
         kind: 'file',
       };
 
       if (context.options.readFileMeta) {
-        fileNode.size = fileData.length;
+        node.size = entry.size;
       }
 
-      parentNode.children?.push(fileNode);
-    });
+      parent.children?.push(node);
+    }
 
     pruneAndSortTree(root, 0, context.options.depth, context.options.sort);
     attachFileTreeMetadata(root);
-
     return root;
   }
 
@@ -160,8 +122,59 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
   }
 
   /**
-   * Converts the configured ZIP source into bytes
-   * @returns ZIP archive bytes
+   * Shares index initialization for immutable sources and allows retries after failures
+   */
+  private getIndex(): Promise<ZipIndex> {
+    if (
+      this.zipSource instanceof Uint8Array ||
+      this.zipSource instanceof ArrayBuffer
+    ) {
+      return this.buildIndex();
+    }
+
+    this.cachedIndex ??= this.buildIndex().catch((error: unknown) => {
+      this.cachedIndex = undefined;
+      throw error;
+    });
+
+    return this.cachedIndex;
+  }
+
+  /**
+   * Indexes archive bytes and orders rule files so parents are loaded first
+   */
+  private async buildIndex(): Promise<ZipIndex> {
+    const bytes = await this.readZipBytes().catch((error: unknown) =>
+      throwReadFailure(
+        'read_failed',
+        'Could not read ZIP source',
+        this.zipName,
+        error
+      )
+    );
+    const entries = parseCentralDirectory(bytes);
+    const ignoreFiles: ZipIndex['ignoreFiles'] = [];
+
+    for (const entry of entries) {
+      if (
+        !entry.isDir &&
+        (entry.path === '.gitignore' || entry.path.endsWith('/.gitignore'))
+      ) {
+        const directory = getParentPath(entry.path);
+        ignoreFiles.push({
+          entry,
+          directory,
+          depth: directory ? directory.split('/').length : 0,
+        });
+      }
+    }
+
+    ignoreFiles.sort((left, right) => left.depth - right.depth);
+    return { bytes, entries, ignoreFiles, ignoreContents: new Map() };
+  }
+
+  /**
+   * Reads a Blob or views mutable bytes without making a full archive copy
    */
   private async readZipBytes(): Promise<Uint8Array> {
     if (this.zipSource instanceof Uint8Array) {
@@ -176,161 +189,77 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
   }
 
   /**
-   * Inflates ZIP archive entries into byte arrays
-   * @param bytes ZIP archive bytes
-   * @returns Mapping from ZIP entry name to file bytes
+   * Loads only rules whose scopes can be reached in this read
    */
-  private async unzipEntries(
-    bytes: Uint8Array
-  ): Promise<Record<string, Uint8Array>> {
-    return await new Promise<Record<string, Uint8Array>>((resolve, reject) => {
-      unzip(bytes, (error, result) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve({ ...result });
-      });
-    });
-  }
-
-  /**
-   * Associates inflated bytes with the display names decoded from the central directory
-   * @param inflatedEntries Inflated bytes using the ZIP decoder's filename keys
-   * @param entries Central directory entries with display and content keys
-   * @returns Entry bytes indexed by the same names used for tree paths
-   */
-  private normalizeEntryNames(
-    inflatedEntries: Record<string, Uint8Array>,
-    entries: ZipEntry[]
-  ): Record<string, Uint8Array> {
-    const normalizedEntries: Record<string, Uint8Array> = Object.create(null);
-    const usedContentKeys = new Set<string>();
-
-    for (const entry of entries) {
-      const contentKey = entry.contentKey ?? entry.name;
+  private loadGitignoreRules(context: ReadContext, archive: ZipIndex): void {
+    for (const { entry, directory, depth } of archive.ignoreFiles) {
+      const scope = directory ? `${this.zipName}/${directory}` : this.zipName;
 
       if (
-        Object.prototype.hasOwnProperty.call(normalizedEntries, entry.name) ||
-        usedContentKeys.has(contentKey)
+        depth >= context.options.depth ||
+        (directory && this.isHiddenOrExcluded(context, scope, true))
       ) {
-        throw new FileTreeError(
-          'invalid_zip',
-          'ZIP entries contain ambiguous duplicate filenames',
-          { path: entry.name }
-        );
+        continue;
       }
 
-      const fileData = Object.prototype.hasOwnProperty.call(
-        inflatedEntries,
-        contentKey
-      )
-        ? inflatedEntries[contentKey]
-        : undefined;
+      let content = archive.ignoreContents.get(entry.path);
 
-      if (!fileData) {
-        throw new FileTreeError(
-          'invalid_zip',
-          'ZIP file content could not be matched to its entry',
-          { path: entry.name }
-        );
+      if (content === undefined) {
+        try {
+          content = readZipEntryText(archive.bytes, entry);
+          archive.ignoreContents.set(entry.path, content);
+        } catch (error) {
+          throwReadFailure(
+            'gitignore_read_failed',
+            'Could not read .gitignore in ZIP archive',
+            `${this.zipName}/${entry.path}`,
+            error
+          );
+        }
       }
 
-      normalizedEntries[entry.name] = fileData;
-      usedContentKeys.add(contentKey);
+      this.registerGitignoreRules(context, scope, content);
     }
-
-    return normalizedEntries;
   }
 
   /**
-   * Loads gitignore rules from .gitignore files inside the ZIP
-   * @param context Context of the current read
-   * @param zipData Inflated ZIP entry bytes keyed by entry name
-   * @param entries Parsed central directory entries
-   */
-  private loadGitignoreFromZip(
-    context: ReadContext,
-    zipData: Record<string, Uint8Array>,
-    entries: ZipEntry[]
-  ): void {
-    entries.forEach(entry => {
-      if (entry.isDir) {
-        return;
-      }
-
-      const name = entry.name.split('/').filter(Boolean).at(-1);
-
-      if (name !== '.gitignore') {
-        return;
-      }
-
-      const fileData = zipData[entry.name];
-
-      if (!fileData) {
-        return;
-      }
-
-      const slashIndex = entry.name.lastIndexOf('/');
-      const dirRelPath =
-        slashIndex === -1
-          ? this.zipName
-          : `${this.zipName}/${entry.name.substring(0, slashIndex)}`;
-
-      this.registerGitignoreRules(
-        context,
-        dirRelPath,
-        new TextDecoder('utf-8').decode(fileData)
-      );
-    });
-  }
-
-  /**
-   * Finds or creates a directory node for a ZIP path
-   * @param dirPath Tree-relative directory path
-   * @param nodeMap Directory lookup keyed by path
-   * @param root Archive root node
-   * @returns Existing or newly created directory node
+   * Finds a directory or creates the missing directories on the way to it
    */
   private getOrCreateDirectory(
     dirPath: string,
-    nodeMap: Map<string, FileNode>,
+    directories: Map<string, FileNode>,
     root: FileNode
   ): FileNode {
-    const normalizedDirPath = dirPath.replace(/\/$/u, '');
+    const missing: string[] = [];
+    let currentPath = dirPath;
+    let parent = directories.get(currentPath);
 
-    if (!normalizedDirPath || normalizedDirPath === root.path) {
-      return root;
+    while (!parent && currentPath && currentPath !== root.path) {
+      missing.push(currentPath);
+      currentPath = getParentPath(currentPath);
+      parent = directories.get(currentPath);
     }
 
-    const cachedNode = nodeMap.get(normalizedDirPath);
+    let directory = parent ?? root;
 
-    if (cachedNode) {
-      return cachedNode;
+    while (missing.length > 0) {
+      const path = missing.pop()!;
+      const child: FileNode = {
+        name: path.slice(directory.path.length + 1),
+        path,
+        kind: 'directory',
+        children: [],
+      };
+      directory.children?.push(child);
+      directories.set(path, child);
+      directory = child;
     }
 
-    const parentPath = getParentPath(normalizedDirPath);
-    const parentNode = this.getOrCreateDirectory(parentPath, nodeMap, root);
-    const nextNode: FileNode = {
-      name: normalizedDirPath.substring(parentPath.length + 1),
-      path: normalizedDirPath,
-      kind: 'directory',
-      children: [],
-    };
-
-    parentNode.children?.push(nextNode);
-    nodeMap.set(normalizedDirPath, nextNode);
-
-    return nextNode;
+    return directory;
   }
 
   /**
-   * Checks whether a ZIP entry path should be skipped
-   * @param context Context of the current read
-   * @param fullPath Tree-relative path to test
-   * @param isDirectory Whether the entry represents a directory
-   * @returns True when hidden, exclude, or gitignore rules skip the path
+   * Checks whether hidden, exclude, or gitignore rules skip an entry
    */
   private isHiddenOrExcluded(
     context: ReadContext,

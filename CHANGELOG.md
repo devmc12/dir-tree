@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Share tree lookup metadata between independently loaded ESM and CommonJS entries
 - Report unreadable ignore files with stable error codes and expose optional metadata warnings through `onWarning`
 - Reject duplicate normalized paths and invalid node structures before publishing imported trees
+- Index ZIP trees without inflating ordinary entries, bound filesystem I/O per read, and apply batch annotation patches with one map copy
 
 ## 1.0.5
 

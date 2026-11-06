@@ -72,8 +72,8 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
     absoluteDirPath: string,
     treeDirPath: string
   ): Promise<NodeFileSystemEntry[]> {
-    const dirents = await fs
-      .readdir(absoluteDirPath, { withFileTypes: true })
+    const dirents = await context
+      .runIo(() => fs.readdir(absoluteDirPath, { withFileTypes: true }))
       .catch((error: unknown) =>
         throwReadFailure(
           'read_failed',
@@ -208,7 +208,7 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
     }
 
     try {
-      const stats = await fs.stat(absolutePath);
+      const stats = await context.runIo(() => fs.stat(absolutePath));
 
       node.size = stats.size;
       node.lastModified = stats.mtimeMs;
@@ -231,9 +231,8 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
     treeDirPath: string
   ): Promise<void> {
     try {
-      const content = await fs.readFile(
-        join(absoluteDirPath, '.gitignore'),
-        'utf8'
+      const content = await context.runIo(() =>
+        fs.readFile(join(absoluteDirPath, '.gitignore'), 'utf8')
       );
 
       this.registerGitignoreRules(context, treeDirPath, content);

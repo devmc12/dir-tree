@@ -103,15 +103,16 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
       return [];
     }
 
-    const entryList = await this.readAllDirectoryEntries(dirEntry).catch(
-      (error: unknown) =>
+    const entryList = await context
+      .runIo(() => this.readAllDirectoryEntries(dirEntry))
+      .catch((error: unknown) =>
         throwReadFailure(
           'read_failed',
           'Could not list directory entries',
           currentDirPath,
           error
         )
-    );
+      );
 
     if (context.options.useGitignore) {
       await this.loadGitignoreFromEntries(context, entryList, currentDirPath);
@@ -249,7 +250,7 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
     }
 
     try {
-      const file = await this.readEntryFile(entry);
+      const file = await context.runIo(() => this.readEntryFile(entry));
 
       node.size = file.size;
       node.lastModified = file.lastModified;
@@ -320,9 +321,10 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
     }
 
     try {
-      const file = await this.readEntryFile(gitignoreEntry);
-
-      this.registerGitignoreRules(context, dirRelPath, await file.text());
+      const content = await context.runIo(async () =>
+        (await this.readEntryFile(gitignoreEntry)).text()
+      );
+      this.registerGitignoreRules(context, dirRelPath, content);
     } catch (error) {
       throwReadFailure(
         'gitignore_read_failed',

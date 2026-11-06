@@ -153,7 +153,7 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
           this.registerGitignoreRules(
             context,
             entry.parentPath,
-            await entry.file.text()
+            await context.runIo(() => entry.file.text())
           );
         } catch (error) {
           throwReadFailure(
