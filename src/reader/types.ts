@@ -3,8 +3,8 @@
  * Desc: Defines shared file tree and reader option types
  */
 
-// Stores non-serializable file tree metadata without affecting JSON export
-export const fileTreeMetadataKey = Symbol('fileTreeMetadata');
+// Separately bundled entries share this key only while the metadata shape is compatible
+export const fileTreeMetadataKey = Symbol.for('@devmc12/dir-tree/metadata/v2');
 
 export interface FileNode {
   name: string;

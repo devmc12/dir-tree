@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseNpmPackResult } from './parse-npm-pack-result.mjs';
@@ -220,6 +220,14 @@ try {
     stdio: 'inherit',
   });
   execFileSync(process.execPath, ['cjs-smoke.cjs'], {
+    cwd: smokeRoot,
+    stdio: 'inherit',
+  });
+  copyFileSync(
+    new URL('./fixtures/cross-entry-smoke.mjs', import.meta.url),
+    join(smokeRoot, 'cross-entry-smoke.mjs')
+  );
+  execFileSync(process.execPath, ['cross-entry-smoke.mjs'], {
     cwd: smokeRoot,
     stdio: 'inherit',
   });
