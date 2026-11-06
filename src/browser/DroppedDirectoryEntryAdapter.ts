@@ -62,8 +62,9 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
 
   /**
    * Reads the dropped directory entry tree into a FileNode tree
-   * @param options Optional read option overrides applied before reading
+   * @param options Overrides for this read; omitted fields use constructor defaults
    * @returns Directory tree rooted at the dropped directory entry
+   * @throws FileTreeError for invalid options, failed traversal, or unreadable ignore rules
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     const context = this.createReadContext(options);

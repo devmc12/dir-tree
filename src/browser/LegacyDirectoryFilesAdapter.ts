@@ -35,8 +35,9 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
 
   /**
    * Rebuilds a FileNode tree from the legacy directory file list
-   * @param options Optional read option overrides applied before reading
+   * @param options Overrides for this read; omitted fields use constructor defaults
    * @returns Directory tree reconstructed from webkitdirectory files
+   * @throws FileTreeError for invalid options, unusable paths, or unreadable ignore rules
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     const context = this.createReadContext(options);

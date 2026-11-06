@@ -33,8 +33,9 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
 
   /**
    * Reads the configured directory path into a FileNode tree
-   * @param options Optional read option overrides applied before reading
+   * @param options Overrides for this read; omitted fields use constructor defaults
    * @returns Directory tree rooted at the configured path
+   * @throws FileTreeError for invalid options, failed traversal, or unreadable ignore rules
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     const context = this.createReadContext(options);

@@ -27,8 +27,9 @@ export class InMemoryFileTreeAdapter extends BaseFileSystemAdapter {
 
   /**
    * Reads the prebuilt source tree into a fresh FileNode tree
-   * @param options Optional read option overrides applied before reading
+   * @param options Overrides for this read; omitted fields use constructor defaults
    * @returns Directory tree cloned from the in-memory snapshot
+   * @throws FileTreeError if the read options are invalid
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     const context = this.createReadContext(options);

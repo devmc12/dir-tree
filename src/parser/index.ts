@@ -24,6 +24,7 @@ import { FileTreeError } from '../reader/errors';
  * @param fallbackRootName Root name used when the text lacks one
  * @param options Format selection and comment template options
  * @returns Parsed tree and extracted annotations
+ * @throws FileTreeError for invalid input or conflicting normalized paths
  */
 export function parseImportedTreeText(
   rawText: string,
@@ -77,6 +78,7 @@ export function parseImportedTreeText(
  * @param fallbackRootName Root name used when the content lacks one
  * @param options Format and comment template options used during parsing
  * @returns Parsed tree and extracted annotations
+ * @throws FileTreeError for conflicting paths or an invalid fallback import
  */
 export function parseImportedMarkdownDocumentTreeText(
   rawText: string,

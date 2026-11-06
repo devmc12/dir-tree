@@ -32,8 +32,9 @@ export class RemoteRepositoryFileSystemAdapter extends BaseFileSystemAdapter {
 
   /**
    * Reads the remote repository tree through the provider API
-   * @param options Optional read option overrides applied before reading
+   * @param options Overrides for this read; omitted fields use constructor defaults
    * @returns Directory tree rooted at the resolved repository subpath
+   * @throws RemoteRepositoryError for provider failures; cancellation propagates unchanged
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     const context = this.createReadContext(options);

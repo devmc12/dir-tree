@@ -103,6 +103,7 @@ export function createExportedFileTreeJson(
  * Parses imported JSON into a tree plus annotations and hidden items
  * @param rawText Raw JSON text to parse
  * @returns Normalized tree, extracted annotations, and visibility map
+ * @throws FileTreeError when the JSON is invalid or normalized paths conflict
  */
 export function parseImportedFileTreeJson(
   rawText: string

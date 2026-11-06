@@ -93,7 +93,7 @@ export function buildFileTreeMetadata(root: FileNode): FileTreeMetadata {
 }
 
 /**
- * Builds tree metadata and attaches it to the root as non-enumerable data
+ * Builds tree metadata and mutates the root to attach it as non-enumerable data
  * @param root Root file node to annotate
  * @returns Metadata that was attached to the root
  */
@@ -111,7 +111,7 @@ export function attachFileTreeMetadata(root: FileNode): FileTreeMetadata {
 }
 
 /**
- * Reads previously attached file tree metadata from a root node
+ * Returns the attached index by reference without rebuilding it
  * @param root Root file node, or null or undefined
  * @returns Attached metadata, or undefined when none is present
  */

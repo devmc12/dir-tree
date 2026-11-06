@@ -122,20 +122,21 @@ console.log(renderAsciiTree(tree));
 
 ### Browser Directory Picker
 
-Use browser helpers to detect directory picker support, then read with `LocalFileSystemAdapter`. This is browser-only.
+Use browser helpers to detect directory picker support, then read with `LocalFileSystemAdapter` from a user action. The adapter retains the selected handle for refreshes.
 
 ```ts
-import { FileSystemReader, LocalFileSystemAdapter } from '@devmc12/dir-tree';
-import { isNativeDirectoryPickerSupported } from '@devmc12/dir-tree/browser';
+import { FileSystemReader } from '@devmc12/dir-tree';
+import {
+  isNativeDirectoryPickerSupported,
+  LocalFileSystemAdapter,
+} from '@devmc12/dir-tree/browser';
 
 if (!isNativeDirectoryPickerSupported()) {
   throw new Error('Directory picking is not supported');
 }
 
-const handle = await window.showDirectoryPicker({ mode: 'read' });
-const tree = await new FileSystemReader(
-  new LocalFileSystemAdapter({}, handle)
-).read({ readFileMeta: true, useGitignore: true });
+const reader = new FileSystemReader(new LocalFileSystemAdapter());
+const tree = await reader.read({ readFileMeta: true });
 ```
 
 ### ZIP Files
@@ -290,11 +291,11 @@ const retainedAnnotations = resolveTreeAnnotationsAfterRead(
 
 ```
 dir-tree/src
-├── adapters                  # File source adapters for in-memory, Node.js, browser, ZIP, and remote repository inputs
+├── adapters                  # In-memory, Node.js, ZIP, and remote repository adapters
 │   └── remoteRepository      # GitHub/GitLab repository tree fetching and mapping
 ├── annotations               # Annotation provider, patch, diff, options, and annotated ASCII
 ├── ascii                     # ASCII tree rendering, options, and monospace utilities
-├── browser                   # Optional browser-only picker and dropped source helpers
+├── browser                   # Browser directory adapters, pickers, and dropped-source helpers
 ├── node                      # Node.js-only entry exposing the filesystem adapter
 ├── parser                    # Imported tree text parsers (JSON, XML, HTML, Markdown, ASCII)
 ├── reader                    # FileSystemReader, read options, metadata, and reader utilities
@@ -303,7 +304,7 @@ dir-tree/src
 └── tree                      # Pure tree editing, visibility, expansion, path, and stats utilities
 ```
 
-Each top-level folder maps to a package subpath export defined in `package.json#exports`.
+Public entry points are listed in `package.json#exports`. Common reader APIs are available from the package root.
 
 ## Playground
 
@@ -323,6 +324,7 @@ npm run start:playground-node
 ## Documentation
 
 - [API reference](https://github.com/devmc12/dir-tree/blob/main/docs/api.md)
+- [Migrating from 1.x to 2.0](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)
 - [Adapters](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md)
 - [Annotations](https://github.com/devmc12/dir-tree/blob/main/docs/annotations.md)
 - [Playground](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md)

@@ -44,8 +44,9 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
 
   /**
    * Reads the selected directory handle into a FileNode tree
-   * @param options Optional read option overrides applied before reading
+   * @param options Overrides for this read; omitted fields use constructor defaults
    * @returns Directory tree rooted at the picked directory handle
+   * @throws FileTreeError for invalid options or source failures; picker cancellation propagates unchanged
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     const context = this.createReadContext(options);

@@ -122,31 +122,30 @@ console.log(renderAsciiTree(tree));
 
 ### 浏览器目录选择器
 
-先用浏览器辅助函数检测目录选择器支持情况，再用 `LocalFileSystemAdapter` 读取。该能力仅限浏览器环境。
+先检测目录选择器支持情况，再在用户操作中用 `LocalFileSystemAdapter` 读取。适配器会保留已选择的句柄，刷新时无需再次选择。
 
 ```ts
-import { FileSystemReader, LocalFileSystemAdapter } from '@devmc12/dir-tree';
-import { isNativeDirectoryPickerSupported } from '@devmc12/dir-tree/browser';
+import { FileSystemReader } from '@devmc12/dir-tree';
+import {
+  isNativeDirectoryPickerSupported,
+  LocalFileSystemAdapter,
+} from '@devmc12/dir-tree/browser';
 
 if (!isNativeDirectoryPickerSupported()) {
   throw new Error('当前环境不支持目录选择');
 }
 
-const handle = await window.showDirectoryPicker({ mode: 'read' });
-const tree = await new FileSystemReader(
-  new LocalFileSystemAdapter({}, handle)
-).read({ readFileMeta: true, useGitignore: true });
+const reader = new FileSystemReader(new LocalFileSystemAdapter());
+const tree = await reader.read({ readFileMeta: true });
 ```
 
 对于不支持原生目录选择器、但支持传统 `webkitdirectory` 选择器的浏览器，可使用 `@devmc12/dir-tree/browser` 中的 `openLegacyDirectoryPicker` 和 `createLegacyDirectorySkipMatcher`，将排除规则下沉到目录遍历中。
 
 ```ts
-import {
-  FileSystemReader,
-  LegacyDirectoryFilesAdapter,
-} from '@devmc12/dir-tree';
+import { FileSystemReader } from '@devmc12/dir-tree';
 import {
   createLegacyDirectorySkipMatcher,
+  LegacyDirectoryFilesAdapter,
   openLegacyDirectoryPicker,
 } from '@devmc12/dir-tree/browser';
 
@@ -156,7 +155,7 @@ const skipDirectory = createLegacyDirectorySkipMatcher(
 );
 const files = await openLegacyDirectoryPicker({
   recursive: true,
-  skipDirectory,
+  ...(skipDirectory ? { skipDirectory } : {}),
 });
 const tree = await new FileSystemReader(
   new LegacyDirectoryFilesAdapter(files, {})
@@ -325,11 +324,11 @@ const retainedAnnotations = resolveTreeAnnotationsAfterRead(
 
 ```
 dir-tree/src
-├── adapters                  # 文件数据源适配器：内存、Node.js、浏览器、ZIP 与远程仓库
+├── adapters                  # 文件数据源适配器：内存、Node.js、ZIP 与远程仓库
 │   └── remoteRepository      # GitHub/GitLab 仓库树的抓取与映射
 ├── annotations               # 注释 provider、补丁、diff、选项与带注释 ASCII
 ├── ascii                     # ASCII 树渲染、选项与等宽工具
-├── browser                   # 可选的浏览器专用选择器与拖拽数据源辅助函数
+├── browser                   # 浏览器目录适配器、选择器与拖拽数据源辅助函数
 ├── node                      # Node.js 专用入口，暴露文件系统适配器
 ├── parser                    # 导入树文本解析器（JSON、XML、HTML、Markdown、ASCII）
 ├── reader                    # FileSystemReader、读取选项、元数据与 reader 工具
@@ -338,7 +337,7 @@ dir-tree/src
 └── tree                      # 纯函数式的树编辑、可见性、展开、路径与统计工具
 ```
 
-每个顶层目录都对应 `package.json#exports` 中的一个包子路径导出。
+公开入口见 `package.json#exports`，通用读取 API 从包的主入口导入。
 
 ## Playground
 
@@ -358,6 +357,7 @@ npm run start:playground-node
 ## 文档
 
 - [API 参考](https://github.com/devmc12/dir-tree/blob/main/docs/api.md)
+- [从 1.x 迁移到 2.0](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)
 - [适配器](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md)
 - [注释](https://github.com/devmc12/dir-tree/blob/main/docs/annotations.md)
 - [Playground](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md)

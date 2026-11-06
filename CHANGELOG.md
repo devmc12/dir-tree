@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Isolate read overrides and ignore rules per call, and let an explicit empty exclude list clear constructor defaults
 - Move browser directory adapters and dropped-entry types to the `/browser` entry
 - Keep file nodes structural and remove `FileNode.handle` and `stripFileNodeHandles`; adapters retain their sources for repeated reads
 - Share tree lookup metadata between independently loaded ESM and CommonJS entries

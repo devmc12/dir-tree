@@ -1,23 +1,23 @@
 # API Reference
 
-This reference describes the public package entry points for `@devmc12/dir-tree` v1.0.0. The package is headless: all APIs in `src/` are UI-free and do not depend on React, Next.js, Zustand, toast libraries, analytics, or application i18n.
+This reference describes the 2.0 API for `@devmc12/dir-tree`. The package is headless: all APIs in `src/` are UI-free and do not depend on React, Next.js, Zustand, toast libraries, analytics, or application i18n. See the [1.x to 2.0 migration guide](migrate-v2.md) for changes to existing integrations.
 
 ## Import Paths
 
 | Import path | Status | Purpose |
 | --- | --- | --- |
 | `@devmc12/dir-tree` | Stable | Root reader, common adapters, common tree/parser/ascii helpers |
-| `@devmc12/dir-tree/adapters` | Stable | Source adapters and remote repository helpers |
+| `@devmc12/dir-tree/adapters` | Stable | Cross-environment adapters and remote repository helpers |
 | `@devmc12/dir-tree/annotations` | Stable | Annotation provider, patch, diff, and annotated ASCII helpers |
 | `@devmc12/dir-tree/ascii` | Stable | ASCII tree rendering and render option helpers |
 | `@devmc12/dir-tree/parser` | Stable | Imported tree text parsers |
 | `@devmc12/dir-tree/tree` | Stable | Pure tree editing, visibility, expansion, path, and stats utilities |
 | `@devmc12/dir-tree/transfer` | Stable | JSON import/export helpers |
 | `@devmc12/dir-tree/node` | Stable | Node.js-only filesystem adapter |
-| `@devmc12/dir-tree/browser` | Experimental | Browser-only picker and dropped source helpers |
+| `@devmc12/dir-tree/browser` | Experimental | Browser directory adapters, pickers, and dropped source helpers |
 | `@devmc12/dir-tree/selection` | Experimental | Pure cascading tree selection model |
 
-`browser` and `selection` are usable in v1.0.0, but they may be refined in future minor releases.
+`browser` and `selection` may be refined in future releases.
 
 ## Core Reader
 
@@ -47,11 +47,12 @@ interface FileNode {
   lastModified?: number;
   mimeType?: string;
   children?: FileNode[];
-  handle?: FileNodeHandle;
 }
 ```
 
-`path` is the stable identifier for tree operations and annotation maps. Directory nodes can have `children`; file nodes normally do not.
+`path` is a logical, slash-separated identifier including the root label. It identifies a node within a tree, not an absolute path to a source file. Only directories have child nodes. When present, `size` is in bytes and `lastModified` is in milliseconds since the Unix epoch. Source handles, files, and archive bytes stay in their adapters.
+
+`cloneFileNode` copies the declared data fields and recursively copies child nodes. It omits attached lookup metadata and unknown properties. `createPreparedFileTree` makes the same copy and builds a fresh index for the copy. `attachFileTreeMetadata` mutates the given root by adding a non-enumerable index. Treat the index from `getFileTreeMetadata` as a view of that tree; rebuild it after mutating that tree in place. The index is readable across the package's entry points and is not serialized in JSON.
 
 ### `ReadOptions`
 
@@ -65,10 +66,15 @@ interface ReadOptions {
   readFileMeta?: boolean;
   concurrency?: boolean | { limit?: number };
   mode?: 'read' | 'readwrite';
+  onWarning?: (warning: ReadWarning) => void;
 }
 ```
 
-Use `createReadOptionsFromConfig` when a host application stores options as UI, CLI, or persisted configuration values.
+Built-in adapters snapshot their constructor defaults. `read(options)` takes a fresh set of overrides for that call; missing or undefined values inherit the constructor defaults. An override replaces the whole exclude array, sort object, or concurrency option. Repeated or concurrent reads use separate filtering state. `FileSystemReader` forwards the call to its active adapter; custom adapters define their own behavior.
+
+The root is at depth `0`; `depth: 0` returns only the root, and omitting depth leaves it unbounded. By default, hidden entries are excluded, applicable `.gitignore` rules are used, optional file metadata is omitted, and children sort by name ascending with directories first. Type sorting uses extension and then modification time; `foldersFirst` applies in either sort order.
+
+Use `createReadOptionsFromConfig` for UI, CLI, or persisted settings. An empty exclude array or blank exclude text clears the default exclusions. If both fields are present, the array wins, including an empty array.
 
 ```ts
 import { createReadOptionsFromConfig } from '@devmc12/dir-tree';
@@ -88,13 +94,28 @@ Common root helpers:
 - `getFileTreeMetadata(root)` reads attached metadata without rebuilding it
 - `formatSize(bytes)` formats byte sizes for human-readable labels
 
+### Errors And Warnings
+
+`FileTreeError` exposes a stable `code`, an optional tree-relative `path`, and a one-based `line` when the parser knows it. An underlying failure may be available as `cause`. Use the code for handling errors across package entry points.
+
+| Code | Meaning |
+| --- | --- |
+| `duplicate_tree_path` | Two imported nodes resolve to the same path |
+| `invalid_tree` | Input cannot be parsed or does not describe a valid node structure |
+| `invalid_read_option` | A read option such as the concurrency limit is invalid |
+| `invalid_zip` | The archive index is damaged or uses an unsupported ZIP format |
+| `gitignore_read_failed` | An applicable ignore file could not be opened or read |
+| `read_failed` | The source could not be opened or enumerated |
+
+An absent `.gitignore` is normal. If reading optional metadata fails, the adapter keeps the node and can call `onWarning` with `{ code: 'metadata_unavailable', source, operation: 'read_metadata', path }`. The warning carries no source contents or raw exception. The library does not log it. Cancellation such as `AbortError` propagates unchanged; remote requests retain their separate [error contract](adapters.md#remote-repository-adapter).
+
 ## Adapters
 
 Adapters implement `IFileSystemAdapter` and are passed to `FileSystemReader`.
 
 ```ts
 interface IFileSystemAdapter {
-  read(options?: ReadOptions): Promise<FileNode>;
+  read(options?: Partial<ReadOptions>): Promise<FileNode>;
 }
 ```
 
@@ -102,9 +123,7 @@ Public adapters:
 
 - `InMemoryFileTreeAdapter`
 - `NodeFileSystemAdapter` from `@devmc12/dir-tree/node`
-- `LocalFileSystemAdapter`
-- `LegacyDirectoryFilesAdapter`
-- `DroppedDirectoryEntryAdapter`
+- `LocalFileSystemAdapter`, `LegacyDirectoryFilesAdapter`, and `DroppedDirectoryEntryAdapter` from `@devmc12/dir-tree/browser`
 - `ZipFileSystemAdapter`
 - `RemoteRepositoryFileSystemAdapter`
 
@@ -135,7 +154,7 @@ import {
 } from '@devmc12/dir-tree/parser';
 ```
 
-`parseImportedTreeText` auto-detects common formats unless a specific format is provided.
+`parseImportedTreeText` auto-detects common formats unless a specific format is provided. All formats reject path conflicts after normalization, including a file and a directory with the same sibling name. Failed imports return no partial tree or annotations.
 
 ```ts
 const parsed = parseImportedTreeText(rawText, 'project', {
@@ -227,7 +246,7 @@ import {
 } from '@devmc12/dir-tree/transfer';
 ```
 
-Transfer helpers serialize a tree with optional annotation and visibility data. They remove non-serializable handles before export.
+Transfer helpers serialize declared node data with optional annotation and visibility data. They omit source objects and lookup indexes. Imported JSON rebuilds paths from names and rejects duplicate paths.
 
 ```ts
 const json = createExportedFileTreeJson(tree, annotations, { visibility });

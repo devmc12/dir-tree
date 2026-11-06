@@ -25,7 +25,7 @@ export interface ReadOptionsConfig {
 /**
  * Converts UI, CLI, or persisted reader configuration into ReadOptions
  * @param config Reader configuration values from a host application
- * @returns Normalized read options without host-specific state
+ * @returns Normalized options preserving explicit empty excludes
  */
 export function createReadOptionsFromConfig(
   config: ReadOptionsConfig

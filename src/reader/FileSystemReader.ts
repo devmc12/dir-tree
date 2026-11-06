@@ -35,8 +35,9 @@ export class FileSystemReader {
 
   /**
    * Reads a file tree through the active adapter
-   * @param options Optional read option overrides applied before reading
+   * @param options Per-call options passed directly to the active adapter
    * @returns Directory tree produced by the adapter
+   * @throws The active adapter failure or cancellation
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     return await this.adapter.read(options);
