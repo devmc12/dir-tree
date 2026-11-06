@@ -1,10 +1,8 @@
 import type { FileNode, ReadOptions } from '../../reader/types';
-import {
-  attachFileTreeMetadata,
-  getParentPath,
-  isPathExcluded,
-  pruneAndSortTree,
-} from '../../reader/utils';
+import { attachFileTreeMetadata } from '../../reader/metadata';
+import { getParentPath } from '../../tree/path';
+import { isPathExcluded } from '../../reader/filters';
+import { pruneAndSortTree } from '../../reader/sort';
 import {
   normalizeRemoteRepositoryPath,
   splitRemoteRepositoryPath,

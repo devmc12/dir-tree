@@ -1,6 +1,6 @@
 import { inflateSync, strFromU8 } from 'fflate';
 import { FileTreeError } from './errors';
-import { getParentPath } from './utils';
+import { getParentPath } from '../tree/path';
 
 /**
  * Date: 2026-11-07

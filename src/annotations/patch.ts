@@ -1,5 +1,5 @@
 import type { FileNode } from '../reader/types';
-import { getFileTreeItems } from '../tree';
+import { getFileTreeItems } from '../tree/traversal';
 import type {
   TreeAnnotationMap,
   TreeAnnotationPatch,

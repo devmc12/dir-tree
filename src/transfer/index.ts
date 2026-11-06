@@ -1,9 +1,13 @@
+import { appendImportedTreeAnnotation } from '../annotations/imported';
 import type { FileNode } from '../reader/types';
-import { copyFileNodeFields } from '../reader/utils';
+import { copyFileNodeFields } from '../reader/snapshot';
 import { FileTreeError } from '../reader/errors';
 import { createImportedTreeNode } from '../reader/importedNode';
-import { type TreeAnnotationMap } from '../annotations';
-import type { FileTreeVisibilityMap, FileTreeVisibilityMode } from '../tree';
+import type { TreeAnnotationMap } from '../annotations/types';
+import type {
+  FileTreeVisibilityMap,
+  FileTreeVisibilityMode,
+} from '../tree/types';
 
 /**
  * Date: 2026-06-07
@@ -273,30 +277,6 @@ function getImportedNodeComment(node: ImportedFileTreeNode): string | null {
   }
 
   return null;
-}
-
-/**
- * Adds a manual annotation for non-empty imported comment text
- * @param annotations Annotation map keyed by path
- * @param path Tree path receiving the annotation
- * @param comment Imported comment text
- */
-function appendImportedTreeAnnotation(
-  annotations: TreeAnnotationMap,
-  path: string,
-  comment: string | null
-): void {
-  if (!comment?.trim()) {
-    return;
-  }
-
-  annotations[path] = {
-    path,
-    comment: comment.trim(),
-    source: 'manual',
-    syncStatus: 'local',
-    updatedAt: Date.now(),
-  };
 }
 
 /**

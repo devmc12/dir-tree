@@ -1,13 +1,13 @@
 import { BaseFileSystemAdapter } from './BaseFileSystemAdapter';
 import type { FileNode, ReadOptions } from '../reader/types';
+import { createRemoteRepositoryApiClient } from './remoteRepository/client';
+import { mapRemoteRepositoryEntriesToFileTree } from './remoteRepository/map';
+import { normalizeRemoteRepositoryPath } from './remoteRepository/path';
 import {
-  createRemoteRepositoryApiClient,
-  mapRemoteRepositoryEntriesToFileTree,
-  normalizeRemoteRepositoryPath,
   parseRemoteRepositoryUrl,
   resolveRemoteRepositoryRefPath,
-  type RemoteRepositoryAdapterOptions,
-} from './remoteRepository';
+} from './remoteRepository/parse';
+import type { RemoteRepositoryAdapterOptions } from './remoteRepository/types';
 
 /**
  * Date: 2026-06-07

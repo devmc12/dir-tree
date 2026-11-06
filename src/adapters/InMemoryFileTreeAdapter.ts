@@ -1,9 +1,7 @@
 import { BaseFileSystemAdapter } from './BaseFileSystemAdapter';
 import type { FileNode, ReadOptions } from '../reader/types';
-import {
-  attachFileTreeMetadata,
-  createFileTreeFromSnapshot,
-} from '../reader/utils';
+import { attachFileTreeMetadata } from '../reader/metadata';
+import { createFileTreeFromSnapshot } from '../reader/snapshot';
 
 /**
  * Date: 2026-06-07

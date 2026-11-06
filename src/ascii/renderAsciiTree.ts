@@ -1,5 +1,5 @@
 import type { FileNode } from '../reader/types';
-import { formatSize } from '../reader/utils';
+import { formatSize } from '../reader/metadata';
 import type {
   AsciiTreeConnectorParts,
   AsciiTreeConnectorStyle,

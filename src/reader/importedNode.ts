@@ -1,6 +1,6 @@
 import type { FileNode } from './types';
 import { FileTreeError } from './errors';
-import { buildFileTreeChildPath } from '../tree';
+import { buildFileTreeChildPath } from '../tree/path';
 
 /**
  * Date: 2026-11-07

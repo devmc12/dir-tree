@@ -6,7 +6,8 @@ import {
 } from './BaseFileSystemAdapter';
 import type { Entry, FileNode, ReadOptions } from '../reader/types';
 import { throwReadFailure } from '../reader/errors';
-import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
+import { attachFileTreeMetadata } from '../reader/metadata';
+import { sortChildren } from '../reader/sort';
 
 /**
  * Date: 2026-06-14

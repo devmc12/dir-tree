@@ -34,3 +34,40 @@ export function createReadIoScheduler(limit: number): RunReadIo {
     }
   };
 }
+
+/**
+ * Runs async tasks with a bounded concurrency limit
+ * @param tasks Task factories to execute
+ * @param limit Maximum number of tasks running at once
+ * @returns Task results in their original order
+ */
+export async function runConcurrent<T>(
+  tasks: Array<() => Promise<T>>,
+  limit: number
+): Promise<T[]> {
+  const results = new Array<T>(tasks.length);
+  let index = 0;
+
+  /**
+   * Runs tasks from the shared queue until no tasks remain
+   */
+  const worker = async (): Promise<void> => {
+    while (index < tasks.length) {
+      const currentIndex = index;
+      const task = tasks[currentIndex];
+      index += 1;
+
+      if (!task) {
+        continue;
+      }
+
+      results[currentIndex] = await task();
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, tasks.length) }, worker)
+  );
+
+  return results;
+}

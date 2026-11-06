@@ -7,12 +7,9 @@ import type {
 } from '../reader/types';
 import { FileTreeError, hasErrorName } from '../reader/errors';
 import { createReadIoScheduler, type RunReadIo } from '../reader/concurrency';
-import {
-  getParentPath,
-  isPathExcluded,
-  parseGitignore,
-  runConcurrent,
-} from '../reader/utils';
+import { getParentPath } from '../tree/path';
+import { isPathExcluded, parseGitignore } from '../reader/filters';
+import { runConcurrent } from '../reader/concurrency';
 
 /**
  * Date: 2026-06-07

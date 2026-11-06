@@ -1,9 +1,6 @@
 import type { FileNode } from '../reader/types';
-import {
-  filterNestedFileTreePaths,
-  getFileTreeItems,
-  isFileTreePathWithin,
-} from '../tree';
+import { filterNestedFileTreePaths, isFileTreePathWithin } from '../tree/path';
+import { getFileTreeItems } from '../tree/traversal';
 import type {
   AnnotationProviderRequest,
   AnnotationProviderResult,

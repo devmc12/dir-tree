@@ -1,5 +1,5 @@
 import type { DroppedFileSystemDirectoryEntry } from './DroppedDirectoryEntryAdapter';
-import type { ImportedTreeFormat } from '../parser';
+import type { ImportedTreeFormat } from '../parser/types';
 
 /**
  * Date: 2026-06-07

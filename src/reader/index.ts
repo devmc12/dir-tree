@@ -13,11 +13,9 @@ export * from './types';
 export {
   attachFileTreeMetadata,
   buildFileTreeMetadata,
-  createFileTreeFromSnapshot,
   formatSize,
   getFileTreeMetadata,
-  globToRegex,
-  isPathExcluded,
-  parseGitignore,
-  sortChildren,
-} from './utils';
+} from './metadata';
+export { createFileTreeFromSnapshot } from './snapshot';
+export { globToRegex, isPathExcluded, parseGitignore } from './filters';
+export { sortChildren } from './sort';

@@ -4,11 +4,9 @@ import {
 } from './BaseFileSystemAdapter';
 import type { FileNode, ReadOptions } from '../reader/types';
 import { throwReadFailure } from '../reader/errors';
-import {
-  attachFileTreeMetadata,
-  getParentPath,
-  pruneAndSortTree,
-} from '../reader/utils';
+import { attachFileTreeMetadata } from '../reader/metadata';
+import { getParentPath } from '../tree/path';
+import { pruneAndSortTree } from '../reader/sort';
 import {
   parseCentralDirectory,
   readZipEntryText,
