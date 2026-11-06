@@ -1,4 +1,7 @@
-import { BaseFileSystemAdapter } from './BaseFileSystemAdapter';
+import {
+  BaseFileSystemAdapter,
+  type ReadContext,
+} from './BaseFileSystemAdapter';
 import type { FileNode, ReadOptions } from '../reader/types';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
@@ -34,7 +37,7 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
    * @returns Directory tree reconstructed from webkitdirectory files
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
-    this.resetReadSession(options);
+    const context = this.createReadContext(options);
 
     if (this.files.length === 0) {
       throw new Error(
@@ -44,8 +47,8 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
 
     const { rootName, entries } = this.createSelectedFileEntries(this.files);
 
-    if (this.useGitignore) {
-      await this.loadGitignoreRules(entries);
+    if (context.options.useGitignore) {
+      await this.loadGitignoreRules(context, entries);
     }
 
     const root: FileNode = {
@@ -55,8 +58,8 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
       children: [],
     };
 
-    this.buildTreeFromEntries(root, entries);
-    this.sortTreeChildren(root);
+    this.buildTreeFromEntries(context, root, entries);
+    this.sortTreeChildren(context, root);
     attachFileTreeMetadata(root);
 
     return root;
@@ -131,37 +134,46 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
 
   /**
    * Loads gitignore rules from selected .gitignore files
+   * @param context Context of the current read
    * @param entries Normalized selected file entries
    */
   private async loadGitignoreRules(
+    context: ReadContext,
     entries: LegacyDirectoryFileEntry[]
   ): Promise<void> {
     const tasks = entries
       .filter(entry => entry.name === '.gitignore')
       .map(entry => async (): Promise<void> => {
-        this.registerGitignoreRules(entry.parentPath, await entry.file.text());
+        this.registerGitignoreRules(
+          context,
+          entry.parentPath,
+          await entry.file.text()
+        );
       });
 
-    await this.executeTasks(tasks);
+    await this.executeTasks(context, tasks);
   }
 
   /**
    * Adds included selected files to the root tree
+   * @param context Context of the current read
    * @param root Root directory node
    * @param entries Normalized selected file entries
    */
   private buildTreeFromEntries(
+    context: ReadContext,
     root: FileNode,
     entries: LegacyDirectoryFileEntry[]
   ): void {
     const directoryNodeMap = new Map<string, FileNode>([[root.path, root]]);
 
     entries.forEach(entry => {
-      if (!this.shouldIncludeSelectedFile(entry)) {
+      if (!this.shouldIncludeSelectedFile(context, entry)) {
         return;
       }
 
       const parentNode = this.ensureParentDirectories(
+        context,
         root,
         directoryNodeMap,
         entry
@@ -171,25 +183,27 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
         return;
       }
 
-      parentNode.children?.push(this.createFileNode(entry));
+      parentNode.children?.push(this.createFileNode(context, entry));
     });
   }
 
   /**
    * Creates missing parent directories for a selected file entry
+   * @param context Context of the current read
    * @param root Root directory node
    * @param directoryNodeMap Directory lookup keyed by path
    * @param entry Selected file entry to place
    * @returns Parent directory node, or null when depth excludes the file
    */
   private ensureParentDirectories(
+    context: ReadContext,
     root: FileNode,
     directoryNodeMap: Map<string, FileNode>,
     entry: LegacyDirectoryFileEntry
   ): FileNode | null {
     const maxDirectoryDepth = Math.min(
       entry.relativeSegments.length - 1,
-      this.depth
+      context.options.depth
     );
     let currentDirectory = root;
     let currentDirectoryPath = root.path;
@@ -210,35 +224,46 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
       );
     }
 
-    return entry.relativeSegments.length > this.depth ? null : currentDirectory;
+    return entry.relativeSegments.length > context.options.depth
+      ? null
+      : currentDirectory;
   }
 
   /**
    * Checks whether a selected file passes hidden, exclude, and gitignore rules
+   * @param context Context of the current read
    * @param entry Selected file entry to test
    * @returns True when the file should be included
    */
-  private shouldIncludeSelectedFile(entry: LegacyDirectoryFileEntry): boolean {
-    if (this.isUnderHiddenDirectory(entry)) {
+  private shouldIncludeSelectedFile(
+    context: ReadContext,
+    entry: LegacyDirectoryFileEntry
+  ): boolean {
+    if (this.isUnderHiddenDirectory(context, entry)) {
       return false;
     }
 
-    if (this.isPathExcludedByPatterns(entry.fullPath)) {
+    if (this.isPathExcludedByPatterns(context, entry.fullPath)) {
       return false;
     }
 
     return !(
-      this.useGitignore && this.isGitIgnored(entry.fullPath, entry.parentPath)
+      context.options.useGitignore &&
+      this.isGitIgnored(context, entry.fullPath, entry.parentPath)
     );
   }
 
   /**
    * Checks whether an entry belongs to a hidden directory
+   * @param context Context of the current read
    * @param entry Selected file entry to test
    * @returns True when hidden directory filtering should exclude the entry
    */
-  private isUnderHiddenDirectory(entry: LegacyDirectoryFileEntry): boolean {
-    if (this.showHidden) {
+  private isUnderHiddenDirectory(
+    context: ReadContext,
+    entry: LegacyDirectoryFileEntry
+  ): boolean {
+    if (context.options.showHidden) {
       return false;
     }
 
@@ -281,10 +306,14 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
 
   /**
    * Converts a legacy selected file entry into a FileNode
+   * @param context Context of the current read
    * @param entry Selected file entry to convert
    * @returns File node with optional metadata
    */
-  private createFileNode(entry: LegacyDirectoryFileEntry): FileNode {
+  private createFileNode(
+    context: ReadContext,
+    entry: LegacyDirectoryFileEntry
+  ): FileNode {
     const node: FileNode = {
       name: entry.name,
       path: entry.fullPath,
@@ -295,7 +324,7 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
       },
     };
 
-    if (!this.readFileMeta) {
+    if (!context.options.readFileMeta) {
       return node;
     }
 
@@ -311,17 +340,18 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
 
   /**
    * Sorts a tree node's children recursively
+   * @param context Context of the current read
    * @param node Directory node whose descendants should be sorted
    */
-  private sortTreeChildren(node: FileNode): void {
+  private sortTreeChildren(context: ReadContext, node: FileNode): void {
     if (!node.children?.length) {
       return;
     }
 
-    sortChildren(node.children, this.sort);
+    sortChildren(node.children, context.options.sort);
 
     node.children.forEach(child => {
-      this.sortTreeChildren(child);
+      this.sortTreeChildren(context, child);
     });
   }
 

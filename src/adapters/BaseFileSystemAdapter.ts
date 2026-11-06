@@ -1,10 +1,5 @@
 import type { ReaderAdapter } from './IFileSystemAdapter';
-import type {
-  FileNode,
-  GitignoreRule,
-  ReadOptions,
-  SortOptions,
-} from '../reader/types';
+import type { FileNode, GitignoreRule, ReadOptions } from '../reader/types';
 import {
   getParentPath,
   isPathExcluded,
@@ -17,31 +12,49 @@ import {
  * Desc: Provides shared read option handling for file system adapters
  */
 
+type EffectiveReadOptions = Required<Omit<ReadOptions, 'sort'>> &
+  Pick<ReadOptions, 'sort'>;
+
+export interface ReadContext {
+  options: EffectiveReadOptions;
+  gitignoreRules: Map<string, GitignoreRule[]>;
+}
+
+/**
+ * Resolves options without retaining mutable configuration supplied by the caller
+ * @param overrides Options supplied for this read or adapter construction
+ * @param defaults Defaults to use for fields absent from the overrides
+ * @returns Independent effective options for the operation
+ */
+function resolveReadOptions(
+  overrides: ReadOptions,
+  defaults: ReadOptions = {}
+): EffectiveReadOptions {
+  const sort = overrides.sort ?? defaults.sort;
+  const concurrency = overrides.concurrency ?? defaults.concurrency ?? false;
+
+  return {
+    depth: overrides.depth ?? defaults.depth ?? Infinity,
+    exclude: [...(overrides.exclude ?? defaults.exclude ?? [])],
+    showHidden: overrides.showHidden ?? defaults.showHidden ?? false,
+    useGitignore: overrides.useGitignore ?? defaults.useGitignore ?? true,
+    readFileMeta: overrides.readFileMeta ?? defaults.readFileMeta ?? false,
+    mode: overrides.mode ?? defaults.mode ?? 'read',
+    concurrency:
+      typeof concurrency === 'object' ? { ...concurrency } : concurrency,
+    ...(sort === undefined ? {} : { sort: { ...sort } }),
+  };
+}
+
 export abstract class BaseFileSystemAdapter implements ReaderAdapter {
-  protected depth: number;
-  protected excludePatterns: string[];
-  protected gitignoreRules: Map<string, GitignoreRule[]>;
-  protected mode: 'read' | 'readwrite';
-  protected readFileMeta: boolean;
-  protected showHidden: boolean;
-  protected useGitignore: boolean;
-  protected concurrencyLimit: number;
-  protected sort: SortOptions | undefined;
+  private readonly defaultOptions: EffectiveReadOptions;
 
   /**
    * Creates a base adapter with normalized read options
    * @param options Initial read options shared by adapter implementations
    */
   protected constructor(options: ReadOptions = {}) {
-    this.depth = options.depth ?? Infinity;
-    this.excludePatterns = options.exclude ?? [];
-    this.gitignoreRules = new Map();
-    this.mode = options.mode ?? 'read';
-    this.readFileMeta = options.readFileMeta ?? false;
-    this.showHidden = options.showHidden ?? false;
-    this.useGitignore = options.useGitignore ?? true;
-    this.concurrencyLimit = this.parseConcurrency(options.concurrency);
-    this.sort = options.sort;
+    this.defaultOptions = resolveReadOptions(options);
   }
 
   /**
@@ -52,119 +65,64 @@ export abstract class BaseFileSystemAdapter implements ReaderAdapter {
   abstract read(options?: Partial<ReadOptions>): Promise<FileNode>;
 
   /**
-   * Applies partial read option overrides to the adapter state
-   * @param options Option overrides supplied for a single read
+   * Creates options and rule storage owned by a single read
+   * @param options Overrides applied only to this read
+   * @returns A context to pass to traversal and filtering helpers
    */
-  protected updateOptions(options?: Partial<ReadOptions>): void {
-    if (!options) {
-      return;
-    }
-
-    if (options.depth !== undefined) {
-      this.depth = options.depth;
-    }
-
-    if (options.exclude !== undefined) {
-      this.excludePatterns = options.exclude;
-    }
-
-    if (options.showHidden !== undefined) {
-      this.showHidden = options.showHidden;
-    }
-
-    if (options.useGitignore !== undefined) {
-      this.useGitignore = options.useGitignore;
-    }
-
-    if (options.readFileMeta !== undefined) {
-      this.readFileMeta = options.readFileMeta;
-    }
-
-    if (options.mode !== undefined) {
-      this.mode = options.mode;
-    }
-
-    if (options.sort !== undefined) {
-      this.sort = options.sort;
-    }
-
-    if (options.concurrency !== undefined) {
-      this.concurrencyLimit = this.parseConcurrency(options.concurrency);
-    }
-  }
-
-  /**
-   * Returns the current adapter read options
-   * @returns Read options represented by the adapter state
-   */
-  protected getOptions(): ReadOptions {
-    const options: ReadOptions = {
-      depth: this.depth,
-      exclude: this.excludePatterns,
-      showHidden: this.showHidden,
-      useGitignore: this.useGitignore,
-      readFileMeta: this.readFileMeta,
-      concurrency:
-        this.concurrencyLimit === 0
-          ? false
-          : {
-              limit: this.concurrencyLimit,
-            },
-      mode: this.mode,
+  protected createReadContext(options: Partial<ReadOptions> = {}): ReadContext {
+    return {
+      options: resolveReadOptions(options, this.defaultOptions),
+      gitignoreRules: new Map(),
     };
-
-    if (this.sort !== undefined) {
-      options.sort = this.sort;
-    }
-
-    return options;
-  }
-
-  /**
-   * Prepares a new read by applying overrides and clearing gitignore rules
-   * @param options Optional read option overrides applied before reading
-   */
-  protected resetReadSession(options?: Partial<ReadOptions>): void {
-    this.updateOptions(options);
-    this.gitignoreRules = new Map();
   }
 
   /**
    * Tests a tree path against configured exclude patterns
+   * @param context Context of the current read
    * @param fullPath Tree path to test
    * @returns True when the path is excluded
    */
-  protected isPathExcludedByPatterns(fullPath: string): boolean {
-    return isPathExcluded(fullPath, this.excludePatterns);
+  protected isPathExcludedByPatterns(
+    context: ReadContext,
+    fullPath: string
+  ): boolean {
+    return isPathExcluded(fullPath, context.options.exclude);
   }
 
   /**
    * Parses and stores gitignore rules for a tree-relative directory
+   * @param context Context of the current read
    * @param dirRelPath Directory path the rules are anchored to
    * @param content Raw gitignore file content
    */
-  protected registerGitignoreRules(dirRelPath: string, content: string): void {
+  protected registerGitignoreRules(
+    context: ReadContext,
+    dirRelPath: string,
+    content: string
+  ): void {
     const rules = parseGitignore(content, dirRelPath);
 
     if (rules.length > 0) {
-      this.gitignoreRules.set(dirRelPath, rules);
+      context.gitignoreRules.set(dirRelPath, rules);
     }
   }
 
   /**
    * Tests a path against loaded gitignore rules from root to parent directory
+   * @param context Context of the current read
    * @param filePath Tree path to test
    * @param parentDirPath Parent directory path used to collect scoped rules
    * @param kind Kind of the node being tested
    * @returns True when the path is ignored
    */
   protected isGitIgnored(
+    context: ReadContext,
     filePath: string,
     parentDirPath = getParentPath(filePath),
     kind: FileNode['kind'] = 'file'
   ): boolean {
     const allRules: GitignoreRule[] = [];
-    const rootRules = this.gitignoreRules.get('');
+    const rootRules = context.gitignoreRules.get('');
 
     if (rootRules) {
       allRules.push(...rootRules);
@@ -180,7 +138,7 @@ export abstract class BaseFileSystemAdapter implements ReaderAdapter {
         return true;
       }
 
-      const rules = this.gitignoreRules.get(accumulatedPath);
+      const rules = context.gitignoreRules.get(accumulatedPath);
 
       if (rules) {
         allRules.push(...rules);
@@ -218,14 +176,18 @@ export abstract class BaseFileSystemAdapter implements ReaderAdapter {
 
   /**
    * Runs read tasks sequentially or with the configured concurrency limit
+   * @param context Context of the current read
    * @param tasks Task factories to execute
    * @returns Task results in input order
    */
   protected async executeTasks<T>(
+    context: ReadContext,
     tasks: Array<() => Promise<T>>
   ): Promise<T[]> {
-    if (this.concurrencyLimit > 0) {
-      return await runConcurrent(tasks, this.concurrencyLimit);
+    const limit = this.parseConcurrency(context.options.concurrency);
+
+    if (limit > 0) {
+      return await runConcurrent(tasks, limit);
     }
 
     const results: T[] = [];

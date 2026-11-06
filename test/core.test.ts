@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -18,6 +18,7 @@ import {
   type DroppedFileSystemFileEntry,
   type FileNode,
   type RemoteRepositoryApiClient,
+  type SortOptions,
 } from '../src';
 import {
   createFileTreeNode,
@@ -188,6 +189,192 @@ function createLocalDirectoryHandle(
 }
 
 describe('reader adapters', () => {
+  it('restores independent constructor defaults after a read override', async () => {
+    const exclude = ['README.md'];
+    const sort: SortOptions = {
+      sortBy: 'name',
+      order: 'desc',
+      foldersFirst: false,
+    };
+    const adapter = new InMemoryFileTreeAdapter(sampleTree, {
+      exclude,
+      showHidden: true,
+      sort,
+    });
+
+    exclude[0] = 'src';
+    sort.order = 'asc';
+
+    const overridden = await adapter.read({
+      exclude: [],
+      showHidden: false,
+      sort: { sortBy: 'name', order: 'asc', foldersFirst: true },
+    });
+    const defaults = await adapter.read();
+
+    expect(overridden.children?.map(child => child.name)).toEqual([
+      'src',
+      'README.md',
+    ]);
+    expect(defaults.children?.map(child => child.name)).toEqual([
+      'src',
+      '.env',
+    ]);
+  });
+
+  it('isolates options and filtering in overlapping reads of a ZIP source', async () => {
+    const archive = new Blob([
+      new Uint8Array(
+        zipSync({
+          '.env': strToU8('hidden'),
+          '.gitignore': strToU8('ignored.txt'),
+          'ignored.txt': strToU8('ignored'),
+          'notes.txt': strToU8('notes'),
+          'src/index.ts': strToU8('source'),
+        })
+      ),
+    ]);
+    const bytes = await archive.arrayBuffer();
+    let release!: (value: ArrayBuffer) => void;
+    const pausedRead = new Promise<ArrayBuffer>(resolve => {
+      release = resolve;
+    });
+    vi.spyOn(archive, 'arrayBuffer').mockReturnValueOnce(pausedRead);
+    const adapter = new ZipFileSystemAdapter(archive);
+    const restricted = adapter.read({
+      depth: 1,
+      exclude: ['notes.txt'],
+      showHidden: false,
+      useGitignore: true,
+    });
+
+    try {
+      const unfiltered = await adapter.read({
+        showHidden: true,
+        useGitignore: false,
+      });
+
+      expect(unfiltered.children?.map(child => child.name)).toEqual([
+        'src',
+        '.env',
+        '.gitignore',
+        'ignored.txt',
+        'notes.txt',
+      ]);
+      expect(unfiltered.children?.[0]?.children?.[0]?.name).toBe('index.ts');
+    } finally {
+      release(bytes);
+    }
+
+    const tree = await restricted;
+    expect(tree.children).toEqual([
+      { name: 'src', path: 'archive.zip/src', kind: 'directory', children: [] },
+    ]);
+  });
+
+  it('shares a pending directory picker, retries cancellation, and reuses the handle', async () => {
+    const handle = createLocalDirectoryHandle('project', [
+      createLocalFileHandle('visible.txt', 'hello'),
+      createLocalFileHandle('.hidden', 'world'),
+    ]);
+    let cancel!: (reason: DOMException) => void;
+    const pendingPick = new Promise<MockLocalDirectoryHandle>((_, reject) => {
+      cancel = reject;
+    });
+    const showDirectoryPicker = vi.fn().mockResolvedValue(handle);
+    showDirectoryPicker.mockReturnValueOnce(pendingPick);
+    vi.stubGlobal('window', { showDirectoryPicker });
+
+    try {
+      const adapter = new LocalFileSystemAdapter();
+      const results = Promise.allSettled([
+        adapter.read({ mode: 'readwrite' }),
+        adapter.read(),
+      ]);
+      const cancellation = new DOMException('Picker cancelled', 'AbortError');
+      cancel(cancellation);
+
+      expect(await results).toEqual([
+        { status: 'rejected', reason: cancellation },
+        { status: 'rejected', reason: cancellation },
+      ]);
+      expect(showDirectoryPicker).toHaveBeenCalledExactlyOnceWith({
+        mode: 'readwrite',
+      });
+
+      const [visible, all] = await Promise.all([
+        adapter.read(),
+        adapter.read({ showHidden: true }),
+      ]);
+      expect(visible.children?.map(node => node.name)).toEqual(['visible.txt']);
+      expect(all.children?.map(node => node.name)).toEqual([
+        '.hidden',
+        'visible.txt',
+      ]);
+      expect(showDirectoryPicker).toHaveBeenCalledTimes(2);
+
+      await adapter.read();
+      expect(showDirectoryPicker).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps each directory read on its own snapshot of gitignore rules', async () => {
+    const handle = createLocalDirectoryHandle('project', [
+      createLocalFileHandle('first.txt', ''),
+      createLocalFileHandle('second.txt', ''),
+    ]);
+    vi.spyOn(handle, 'getFileHandle')
+      .mockResolvedValueOnce(
+        createLocalFileHandle(
+          '.gitignore',
+          'first.txt'
+        ) as unknown as FileSystemFileHandle
+      )
+      .mockResolvedValueOnce(
+        createLocalFileHandle(
+          '.gitignore',
+          'second.txt'
+        ) as unknown as FileSystemFileHandle
+      );
+    let startListing!: () => void;
+    let resumeListing!: () => void;
+    const listingStarted = new Promise<void>(resolve => {
+      startListing = resolve;
+    });
+    const listingPaused = new Promise<void>(resolve => {
+      resumeListing = resolve;
+    });
+    const list = handle[Symbol.asyncIterator].bind(handle);
+    vi.spyOn(handle, Symbol.asyncIterator).mockImplementationOnce(
+      async function* () {
+        startListing();
+        await listingPaused;
+        yield* list();
+      }
+    );
+
+    const adapter = new LocalFileSystemAdapter(
+      {},
+      handle as unknown as FileSystemDirectoryHandle
+    );
+    const first = adapter.read();
+    await listingStarted;
+
+    try {
+      expect((await adapter.read()).children?.map(node => node.name)).toEqual([
+        'first.txt',
+      ]);
+    } finally {
+      resumeListing();
+    }
+
+    expect((await first).children?.map(node => node.name)).toEqual([
+      'second.txt',
+    ]);
+  });
+
   it('honors directory-only gitignore rules in the Node adapter', async () => {
     const prefix = join(tmpdir(), 'dir-tree-ignore-');
     const directory = await mkdtemp(prefix);

@@ -1,5 +1,8 @@
 import { unzip } from 'fflate';
-import { BaseFileSystemAdapter } from './BaseFileSystemAdapter';
+import {
+  BaseFileSystemAdapter,
+  type ReadContext,
+} from './BaseFileSystemAdapter';
 import type { FileNode, ReadOptions, ZipEntry } from '../reader/types';
 import {
   attachFileTreeMetadata,
@@ -37,7 +40,7 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
    * @returns Directory tree rooted at the archive name
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
-    this.resetReadSession(options);
+    const context = this.createReadContext(options);
 
     const bytes = await this.readZipBytes();
     const centralDirectoryEntries = parseCentralDirectory(
@@ -63,8 +66,8 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
       },
     };
 
-    if (this.useGitignore) {
-      this.loadGitignoreFromZip(zipData, centralDirectoryEntries);
+    if (context.options.useGitignore) {
+      this.loadGitignoreFromZip(context, zipData, centralDirectoryEntries);
     }
 
     const nodeMap = new Map<string, FileNode>();
@@ -80,7 +83,7 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
 
       const fullPath = `${root.path}/${relativePath}`;
 
-      if (this.isHiddenOrExcluded(fullPath, entry.isDir)) {
+      if (this.isHiddenOrExcluded(context, fullPath, entry.isDir)) {
         return;
       }
 
@@ -107,14 +110,14 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
         },
       };
 
-      if (this.readFileMeta) {
+      if (context.options.readFileMeta) {
         fileNode.size = fileData.length;
       }
 
       parentNode.children?.push(fileNode);
     });
 
-    pruneAndSortTree(root, 0, this.depth, this.sort);
+    pruneAndSortTree(root, 0, context.options.depth, context.options.sort);
     attachFileTreeMetadata(root);
 
     return root;
@@ -220,10 +223,12 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
 
   /**
    * Loads gitignore rules from .gitignore files inside the ZIP
+   * @param context Context of the current read
    * @param zipData Inflated ZIP entry bytes keyed by entry name
    * @param entries Parsed central directory entries
    */
   private loadGitignoreFromZip(
+    context: ReadContext,
     zipData: Record<string, Uint8Array>,
     entries: ZipEntry[]
   ): void {
@@ -251,6 +256,7 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
           : `${this.zipName}/${entry.name.substring(0, slashIndex)}`;
 
       this.registerGitignoreRules(
+        context,
         dirRelPath,
         new TextDecoder('utf-8').decode(fileData)
       );
@@ -298,17 +304,23 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
 
   /**
    * Checks whether a ZIP entry path should be skipped
+   * @param context Context of the current read
    * @param fullPath Tree-relative path to test
    * @param isDirectory Whether the entry represents a directory
    * @returns True when hidden, exclude, or gitignore rules skip the path
    */
-  private isHiddenOrExcluded(fullPath: string, isDirectory: boolean): boolean {
+  private isHiddenOrExcluded(
+    context: ReadContext,
+    fullPath: string,
+    isDirectory: boolean
+  ): boolean {
     return (
-      (!this.showHidden &&
+      (!context.options.showHidden &&
         fullPath.split('/').some(part => part.startsWith('.'))) ||
-      this.isPathExcludedByPatterns(fullPath) ||
-      (this.useGitignore &&
+      this.isPathExcludedByPatterns(context, fullPath) ||
+      (context.options.useGitignore &&
         this.isGitIgnored(
+          context,
           fullPath,
           getParentPath(fullPath),
           isDirectory ? 'directory' : 'file'

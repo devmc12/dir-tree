@@ -1,4 +1,7 @@
-import { BaseFileSystemAdapter } from './BaseFileSystemAdapter';
+import {
+  BaseFileSystemAdapter,
+  type ReadContext,
+} from './BaseFileSystemAdapter';
 import type { FileNode, ReadOptions } from '../reader/types';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
@@ -61,14 +64,19 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
    * @returns Directory tree rooted at the dropped directory entry
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
-    this.resetReadSession(options);
+    const context = this.createReadContext(options);
 
     const rootName = this.rootEntry.name;
     const root: FileNode = {
       name: rootName,
       path: rootName,
       kind: 'directory',
-      children: await this.traverseDirectory(this.rootEntry, rootName, 0),
+      children: await this.traverseDirectory(
+        context,
+        this.rootEntry,
+        rootName,
+        0
+      ),
     };
 
     attachFileTreeMetadata(root);
@@ -78,29 +86,32 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
 
   /**
    * Recursively reads a dropped directory entry into child file nodes
+   * @param context Context of the current read
    * @param dirEntry Directory entry to traverse
    * @param currentDirPath Tree-relative directory path
    * @param currentDepth Current recursion depth
    * @returns Child nodes included by the read options
    */
   private async traverseDirectory(
+    context: ReadContext,
     dirEntry: DroppedFileSystemDirectoryEntry,
     currentDirPath: string,
     currentDepth: number
   ): Promise<FileNode[]> {
-    if (currentDepth >= this.depth) {
+    if (currentDepth >= context.options.depth) {
       return [];
     }
 
     const entryList = await this.readAllDirectoryEntries(dirEntry);
 
-    if (this.useGitignore) {
-      await this.loadGitignoreFromEntries(entryList, currentDirPath);
+    if (context.options.useGitignore) {
+      await this.loadGitignoreFromEntries(context, entryList, currentDirPath);
     }
 
     const tasks = entryList
       .filter(entry => {
         return this.shouldIncludeEntry(
+          context,
           entry,
           `${currentDirPath}/${entry.name}`,
           currentDirPath
@@ -111,44 +122,48 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
 
         if (entry.isDirectory) {
           return await this.buildDirectoryNode(
+            context,
             entry,
             childPath,
             currentDepth + 1
           );
         }
 
-        return await this.buildFileNode(entry, childPath);
+        return await this.buildFileNode(context, entry, childPath);
       });
-    const children = await this.executeTasks(tasks);
+    const children = await this.executeTasks(context, tasks);
 
-    sortChildren(children, this.sort);
+    sortChildren(children, context.options.sort);
 
     return children;
   }
 
   /**
    * Checks whether a dropped entry should be included in the tree
+   * @param context Context of the current read
    * @param entry Dropped file or directory entry
    * @param childPath Tree-relative path for the entry
    * @param currentDirPath Parent directory path used for gitignore lookup
    * @returns True when the entry should be traversed or added
    */
   private shouldIncludeEntry(
+    context: ReadContext,
     entry: DroppedFileSystemEntry,
     childPath: string,
     currentDirPath: string
   ): boolean {
-    if (!this.showHidden && entry.name.startsWith('.')) {
+    if (!context.options.showHidden && entry.name.startsWith('.')) {
       return false;
     }
 
-    if (this.isEntryExcludedByPatterns(entry, childPath)) {
+    if (this.isEntryExcludedByPatterns(context, entry, childPath)) {
       return false;
     }
 
     return !(
-      this.useGitignore &&
+      context.options.useGitignore &&
       this.isGitIgnored(
+        context,
         childPath,
         currentDirPath,
         entry.isDirectory ? 'directory' : 'file'
@@ -158,28 +173,33 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
 
   /**
    * Tests dropped entries against file and directory exclude patterns
+   * @param context Context of the current read
    * @param entry Dropped entry being tested
    * @param childPath Tree-relative path for the entry
    * @returns True when the entry matches an exclude pattern
    */
   private isEntryExcludedByPatterns(
+    context: ReadContext,
     entry: DroppedFileSystemEntry,
     childPath: string
   ): boolean {
     return (
-      this.isPathExcludedByPatterns(childPath) ||
-      (entry.isDirectory && this.isPathExcludedByPatterns(`${childPath}/`))
+      this.isPathExcludedByPatterns(context, childPath) ||
+      (entry.isDirectory &&
+        this.isPathExcludedByPatterns(context, `${childPath}/`))
     );
   }
 
   /**
    * Builds a directory node and recursively attaches its children
+   * @param context Context of the current read
    * @param entry Directory entry to convert
    * @param path Tree-relative path for the node
    * @param currentDepth Current recursion depth
    * @returns FileNode directory for the dropped entry
    */
   private async buildDirectoryNode(
+    context: ReadContext,
     entry: DroppedFileSystemDirectoryEntry,
     path: string,
     currentDepth: number
@@ -188,17 +208,24 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
       name: entry.name,
       path,
       kind: 'directory',
-      children: await this.traverseDirectory(entry, path, currentDepth),
+      children: await this.traverseDirectory(
+        context,
+        entry,
+        path,
+        currentDepth
+      ),
     };
   }
 
   /**
    * Builds a file node from a dropped file entry
+   * @param context Context of the current read
    * @param entry File entry to convert
    * @param filePath Tree-relative path for the node
    * @returns FileNode file with optional metadata
    */
   private async buildFileNode(
+    context: ReadContext,
     entry: DroppedFileSystemFileEntry,
     filePath: string
   ): Promise<FileNode> {
@@ -208,7 +235,7 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
       kind: 'file',
     };
 
-    if (!this.readFileMeta) {
+    if (!context.options.readFileMeta) {
       return node;
     }
 
@@ -269,10 +296,12 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
 
   /**
    * Loads gitignore rules from a dropped directory entry list when available
+   * @param context Context of the current read
    * @param entries Entries in the current directory
    * @param dirRelPath Tree-relative directory path
    */
   private async loadGitignoreFromEntries(
+    context: ReadContext,
     entries: DroppedFileSystemEntry[],
     dirRelPath: string
   ): Promise<void> {
@@ -288,7 +317,7 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
     try {
       const file = await this.readEntryFile(gitignoreEntry);
 
-      this.registerGitignoreRules(dirRelPath, await file.text());
+      this.registerGitignoreRules(context, dirRelPath, await file.text());
     } catch {
       // Directories with unreadable .gitignore files do not add rules
     }

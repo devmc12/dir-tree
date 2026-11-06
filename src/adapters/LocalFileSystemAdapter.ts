@@ -1,4 +1,7 @@
-import { BaseFileSystemAdapter } from './BaseFileSystemAdapter';
+import {
+  BaseFileSystemAdapter,
+  type ReadContext,
+} from './BaseFileSystemAdapter';
 import type { Entry, FileNode, ReadOptions } from '../reader/types';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
@@ -18,6 +21,7 @@ type IterableDirectoryHandle = FileSystemDirectoryHandle &
 
 export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
   private rootHandle: FileSystemDirectoryHandle | undefined;
+  private pendingPick: Promise<FileSystemDirectoryHandle> | undefined;
 
   /**
    * Creates an adapter for the File System Access API
@@ -38,37 +42,36 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
    * @returns Directory tree rooted at the picked directory handle
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
-    this.resetReadSession(options);
+    const context = this.createReadContext(options);
 
-    this.rootHandle ??= await this.pickDirectory();
-
-    const rootName = this.rootHandle.name;
+    const rootHandle = await this.resolveRootHandle(context.options.mode);
+    const rootName = rootHandle.name;
     const root: FileNode = {
       name: rootName,
       path: rootName,
       kind: 'directory',
       handle: {
         source: 'file-system-directory',
-        handle: this.rootHandle,
+        handle: rootHandle,
       },
       children: [],
     };
 
-    if (this.useGitignore) {
-      await this.loadGitignore(this.rootHandle, rootName);
+    if (context.options.useGitignore) {
+      await this.loadGitignore(context, rootHandle, rootName);
     }
 
-    const entries = await this.enumerateEntries(this.rootHandle, rootName);
+    const entries = await this.listEntries(context, rootHandle, rootName);
 
-    root.children = await this.traverseEntries(entries, 0);
-    sortChildren(root.children, this.sort);
+    root.children = await this.traverseEntries(context, entries, 0);
+    sortChildren(root.children, context.options.sort);
     attachFileTreeMetadata(root);
 
     return root;
   }
 
   /**
-   * Lists the included child entries of a directory handle
+   * Lists child entries using the adapter defaults and the directory's own ignore file
    * @param dirHandle Directory handle to enumerate
    * @param currentDirPath Tree-relative path of the directory being listed
    * @returns Entries that pass hidden, exclude, and gitignore filtering
@@ -77,22 +80,38 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
     dirHandle: FileSystemDirectoryHandle,
     currentDirPath: string
   ): Promise<Entry[]> {
+    const context = this.createReadContext();
+    if (context.options.useGitignore) {
+      await this.loadGitignore(context, dirHandle, currentDirPath);
+    }
+    return await this.listEntries(context, dirHandle, currentDirPath);
+  }
+
+  /**
+   * Filters directory entries with the rules of the current read
+   * @param context Context of the current read
+   */
+  private async listEntries(
+    context: ReadContext,
+    dirHandle: FileSystemDirectoryHandle,
+    currentDirPath: string
+  ): Promise<Entry[]> {
     const entries: Entry[] = [];
 
     for await (const [, childHandle] of dirHandle as IterableDirectoryHandle) {
       const childPath = `${currentDirPath}/${childHandle.name}`;
 
-      if (!this.showHidden && childHandle.name.startsWith('.')) {
+      if (!context.options.showHidden && childHandle.name.startsWith('.')) {
         continue;
       }
 
-      if (this.isPathExcludedByPatterns(childPath)) {
+      if (this.isPathExcludedByPatterns(context, childPath)) {
         continue;
       }
 
       if (
-        this.useGitignore &&
-        this.isGitIgnored(childPath, currentDirPath, childHandle.kind)
+        context.options.useGitignore &&
+        this.isGitIgnored(context, childPath, currentDirPath, childHandle.kind)
       ) {
         continue;
       }
@@ -109,34 +128,61 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
   }
 
   /**
+   * Reuses the selected handle or shares the first pending directory picker
+   * @param mode Access mode requested when a picker is needed
+   * @returns Handle retained for future reads after successful selection
+   */
+  private async resolveRootHandle(
+    mode: NonNullable<ReadOptions['mode']>
+  ): Promise<FileSystemDirectoryHandle> {
+    if (this.rootHandle) {
+      return this.rootHandle;
+    }
+
+    this.pendingPick ??= this.pickDirectory(mode);
+
+    try {
+      this.rootHandle = await this.pendingPick;
+      return this.rootHandle;
+    } finally {
+      this.pendingPick = undefined;
+    }
+  }
+
+  /**
    * Opens the native directory picker and returns the selected handle
+   * @param mode Access mode requested by the read that opens the picker
    * @returns Directory handle selected by the user
    */
-  private async pickDirectory(): Promise<FileSystemDirectoryHandle> {
+  private async pickDirectory(
+    mode: NonNullable<ReadOptions['mode']>
+  ): Promise<FileSystemDirectoryHandle> {
     if (typeof window === 'undefined') {
       throw new Error('Directory picking requires a browser runtime');
     }
 
-    const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
+    const pickerWindow: DirectoryPickerWindow = window;
 
-    if (!picker) {
+    if (!pickerWindow.showDirectoryPicker) {
       throw new Error('Browser does not support showDirectoryPicker API');
     }
 
-    return await picker({ mode: this.mode });
+    return await pickerWindow.showDirectoryPicker({ mode });
   }
 
   /**
    * Recursively converts directory entries into child file nodes
+   * @param context Context of the current read
    * @param entries Directory entries to traverse
    * @param currentDepth Current recursion depth
    * @returns Child nodes included by the read options
    */
   private async traverseEntries(
+    context: ReadContext,
     entries: Entry[],
     currentDepth: number
   ): Promise<FileNode[]> {
-    if (currentDepth >= this.depth) {
+    if (currentDepth >= context.options.depth) {
       return [];
     }
 
@@ -144,11 +190,15 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
       if (entry.kind === 'directory') {
         const dirHandle = entry.handle as FileSystemDirectoryHandle;
 
-        if (this.useGitignore) {
-          await this.loadGitignore(dirHandle, entry.path);
+        if (context.options.useGitignore) {
+          await this.loadGitignore(context, dirHandle, entry.path);
         }
 
-        const childEntries = await this.enumerateEntries(dirHandle, entry.path);
+        const childEntries = await this.listEntries(
+          context,
+          dirHandle,
+          entry.path
+        );
         const node: FileNode = {
           name: entry.name,
           path: entry.path,
@@ -157,29 +207,36 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
             source: 'file-system-directory',
             handle: dirHandle,
           },
-          children: await this.traverseEntries(childEntries, currentDepth + 1),
+          children: await this.traverseEntries(
+            context,
+            childEntries,
+            currentDepth + 1
+          ),
         };
 
-        sortChildren(node.children ?? [], this.sort);
+        sortChildren(node.children ?? [], context.options.sort);
         return node;
       }
 
       return await this.buildFileNode(
+        context,
         entry.handle as FileSystemFileHandle,
         entry.path
       );
     });
 
-    return await this.executeTasks(tasks);
+    return await this.executeTasks(context, tasks);
   }
 
   /**
    * Builds a file node from a File System Access file handle
+   * @param context Context of the current read
    * @param handle Browser file handle
    * @param filePath Tree-relative file path
    * @returns File node with optional metadata
    */
   private async buildFileNode(
+    context: ReadContext,
     handle: FileSystemFileHandle,
     filePath: string
   ): Promise<FileNode> {
@@ -193,7 +250,7 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
       },
     };
 
-    if (!this.readFileMeta) {
+    if (!context.options.readFileMeta) {
       return node;
     }
 
@@ -214,10 +271,12 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
 
   /**
    * Loads gitignore rules from a directory handle when present
+   * @param context Context of the current read
    * @param dirHandle Directory handle to inspect
    * @param dirRelPath Tree-relative directory path
    */
   private async loadGitignore(
+    context: ReadContext,
     dirHandle: FileSystemDirectoryHandle,
     dirRelPath: string
   ): Promise<void> {
@@ -225,7 +284,7 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
       const gitignoreHandle = await dirHandle.getFileHandle('.gitignore');
       const file = await gitignoreHandle.getFile();
 
-      this.registerGitignoreRules(dirRelPath, await file.text());
+      this.registerGitignoreRules(context, dirRelPath, await file.text());
     } catch {
       // Directories without .gitignore do not add rules
     }

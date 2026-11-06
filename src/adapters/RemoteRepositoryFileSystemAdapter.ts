@@ -36,7 +36,7 @@ export class RemoteRepositoryFileSystemAdapter extends BaseFileSystemAdapter {
    * @returns Directory tree rooted at the resolved repository subpath
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
-    this.resetReadSession(options);
+    const context = this.createReadContext(options);
 
     const parsedUrl = parseRemoteRepositoryUrl(
       this.adapterOptions.repositoryUrl
@@ -67,7 +67,7 @@ export class RemoteRepositoryFileSystemAdapter extends BaseFileSystemAdapter {
       signal?: AbortSignal;
       subPath?: string;
     } = {
-      readFileMeta: this.readFileMeta,
+      readFileMeta: context.options.readFileMeta,
       subPath,
     };
 
@@ -85,7 +85,7 @@ export class RemoteRepositoryFileSystemAdapter extends BaseFileSystemAdapter {
 
     return mapRemoteRepositoryEntriesToFileTree({
       entries,
-      readOptions: this.getOptions(),
+      readOptions: context.options,
       rootName,
       subPath,
     });

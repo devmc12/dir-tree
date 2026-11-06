@@ -22,7 +22,7 @@ export class InMemoryFileTreeAdapter extends BaseFileSystemAdapter {
     super(options);
     this.sourceTree = createFileTreeFromSnapshot(
       sourceTree,
-      { readFileMeta: true },
+      { readFileMeta: true, showHidden: true },
       'default-on'
     );
   }
@@ -33,11 +33,11 @@ export class InMemoryFileTreeAdapter extends BaseFileSystemAdapter {
    * @returns Directory tree cloned from the in-memory snapshot
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
-    this.resetReadSession(options);
+    const context = this.createReadContext(options);
 
     const root = createFileTreeFromSnapshot(
       this.sourceTree,
-      this.getOptions(),
+      context.options,
       'default-off'
     );
 

@@ -1,6 +1,9 @@
 import { promises as fs } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { BaseFileSystemAdapter } from './BaseFileSystemAdapter';
+import {
+  BaseFileSystemAdapter,
+  type ReadContext,
+} from './BaseFileSystemAdapter';
 import type { Entry, FileNode, ReadOptions } from '../reader/types';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
@@ -32,7 +35,7 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
    * @returns Directory tree rooted at the configured path
    */
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
-    this.resetReadSession(options);
+    const context = this.createReadContext(options);
 
     const absoluteRoot = resolve(this.rootPath);
     const rootName = basename(absoluteRoot) || absoluteRoot;
@@ -47,14 +50,18 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
       children: [],
     };
 
-    if (this.useGitignore) {
-      await this.loadGitignore(absoluteRoot, rootName);
+    if (context.options.useGitignore) {
+      await this.loadGitignore(context, absoluteRoot, rootName);
     }
 
-    const entries = await this.enumerateEntries(absoluteRoot, rootName);
+    const entries = await this.enumerateEntries(
+      context,
+      absoluteRoot,
+      rootName
+    );
 
-    root.children = await this.traverseEntries(entries, 0);
-    sortChildren(root.children, this.sort);
+    root.children = await this.traverseEntries(context, entries, 0);
+    sortChildren(root.children, context.options.sort);
     attachFileTreeMetadata(root);
 
     return root;
@@ -62,11 +69,13 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
 
   /**
    * Lists included entries in a filesystem directory
+   * @param context Context of the current read
    * @param absoluteDirPath Absolute directory path to read
    * @param treeDirPath Tree-relative directory path
    * @returns Entries that pass hidden, exclude, and gitignore filtering
    */
   private async enumerateEntries(
+    context: ReadContext,
     absoluteDirPath: string,
     treeDirPath: string
   ): Promise<NodeFileSystemEntry[]> {
@@ -82,17 +91,18 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
 
       const childTreePath = `${treeDirPath}/${dirent.name}`;
 
-      if (!this.showHidden && dirent.name.startsWith('.')) {
+      if (!context.options.showHidden && dirent.name.startsWith('.')) {
         continue;
       }
 
-      if (this.isPathExcludedByPatterns(childTreePath)) {
+      if (this.isPathExcludedByPatterns(context, childTreePath)) {
         continue;
       }
 
       if (
-        this.useGitignore &&
+        context.options.useGitignore &&
         this.isGitIgnored(
+          context,
           childTreePath,
           treeDirPath,
           isDirectory ? 'directory' : 'file'
@@ -114,15 +124,17 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
 
   /**
    * Recursively converts filesystem entries into child file nodes
+   * @param context Context of the current read
    * @param entries Filesystem entries to traverse
    * @param currentDepth Current recursion depth
    * @returns Child nodes included by the read options
    */
   private async traverseEntries(
+    context: ReadContext,
     entries: NodeFileSystemEntry[],
     currentDepth: number
   ): Promise<FileNode[]> {
-    if (currentDepth >= this.depth) {
+    if (currentDepth >= context.options.depth) {
       return [];
     }
 
@@ -130,11 +142,12 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
       const { absolutePath } = entry.handle;
 
       if (entry.kind === 'directory') {
-        if (this.useGitignore) {
-          await this.loadGitignore(absolutePath, entry.path);
+        if (context.options.useGitignore) {
+          await this.loadGitignore(context, absolutePath, entry.path);
         }
 
         const childEntries = await this.enumerateEntries(
+          context,
           absolutePath,
           entry.path
         );
@@ -146,27 +159,38 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
             source: 'node-directory',
             absolutePath,
           },
-          children: await this.traverseEntries(childEntries, currentDepth + 1),
+          children: await this.traverseEntries(
+            context,
+            childEntries,
+            currentDepth + 1
+          ),
         };
 
-        sortChildren(node.children ?? [], this.sort);
+        sortChildren(node.children ?? [], context.options.sort);
         return node;
       }
 
-      return await this.buildFileNode(entry.name, entry.path, absolutePath);
+      return await this.buildFileNode(
+        context,
+        entry.name,
+        entry.path,
+        absolutePath
+      );
     });
 
-    return await this.executeTasks(tasks);
+    return await this.executeTasks(context, tasks);
   }
 
   /**
    * Builds a file node from a Node.js filesystem path
+   * @param context Context of the current read
    * @param name File name
    * @param treePath Tree-relative file path
    * @param absolutePath Absolute filesystem path
    * @returns File node with optional metadata
    */
   private async buildFileNode(
+    context: ReadContext,
     name: string,
     treePath: string,
     absolutePath: string
@@ -181,7 +205,7 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
       },
     };
 
-    if (!this.readFileMeta) {
+    if (!context.options.readFileMeta) {
       return node;
     }
 
@@ -199,10 +223,12 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
 
   /**
    * Loads gitignore rules from a filesystem directory when present
+   * @param context Context of the current read
    * @param absoluteDirPath Absolute directory path to inspect
    * @param treeDirPath Tree-relative directory path
    */
   private async loadGitignore(
+    context: ReadContext,
     absoluteDirPath: string,
     treeDirPath: string
   ): Promise<void> {
@@ -212,7 +238,7 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
         'utf8'
       );
 
-      this.registerGitignoreRules(treeDirPath, content);
+      this.registerGitignoreRules(context, treeDirPath, content);
     } catch {
       // Directories without .gitignore do not add rules
     }
