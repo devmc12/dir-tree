@@ -43,10 +43,6 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
       name: rootName,
       path: rootName,
       kind: 'directory',
-      handle: {
-        source: 'node-directory',
-        absolutePath: absoluteRoot,
-      },
       children: [],
     };
 
@@ -155,10 +151,6 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
           name: entry.name,
           path: entry.path,
           kind: 'directory',
-          handle: {
-            source: 'node-directory',
-            absolutePath,
-          },
           children: await this.traverseEntries(
             context,
             childEntries,
@@ -199,10 +191,6 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
       name,
       path: treePath,
       kind: 'file',
-      handle: {
-        source: 'node-file',
-        absolutePath,
-      },
     };
 
     if (!context.options.readFileMeta) {

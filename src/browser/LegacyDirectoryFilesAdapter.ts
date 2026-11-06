@@ -1,7 +1,7 @@
 import {
   BaseFileSystemAdapter,
   type ReadContext,
-} from './BaseFileSystemAdapter';
+} from '../adapters/BaseFileSystemAdapter';
 import type { FileNode, ReadOptions } from '../reader/types';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
@@ -318,10 +318,6 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
       name: entry.name,
       path: entry.fullPath,
       kind: 'file',
-      handle: {
-        source: 'legacy-file',
-        file: entry.file,
-      },
     };
 
     if (!context.options.readFileMeta) {

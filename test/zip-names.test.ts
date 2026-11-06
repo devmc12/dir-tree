@@ -1,10 +1,10 @@
 import { strToU8, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { ZipFileSystemAdapter, type FileNode } from '../src';
+import { ZipFileSystemAdapter } from '../src';
 
 /**
  * Date: 2026-11-06
- * Desc: Verifies ZIP filename decoding preserves the associated file bytes
+ * Desc: Verifies ZIP filename decoding and ignore rule content mapping
  */
 
 /**
@@ -65,15 +65,8 @@ function unicodePathField(
   return field;
 }
 
-function fileBytes(node: FileNode | undefined): number[] {
-  expect(node?.handle?.source).toBe('zip-file');
-  return node?.handle?.source === 'zip-file'
-    ? Array.from(node.handle.bytes)
-    : [];
-}
-
 describe('ZIP filename content mapping', () => {
-  it('retains GBK filenames, bytes, and size metadata', async () => {
+  it('retains GBK filenames and size metadata', async () => {
     const data = strToU8('abc');
     const archive = withGbkNames(zipSync({ 'aa.txt': data }));
     const tree = await new ZipFileSystemAdapter(
@@ -87,7 +80,6 @@ describe('ZIP filename content mapping', () => {
       path: 'project/中.txt',
       size: 3,
     });
-    expect(fileBytes(tree.children?.[0])).toEqual(Array.from(data));
   });
 
   it('loads nested gitignore files under GBK directory names', async () => {
@@ -107,9 +99,7 @@ describe('ZIP filename content mapping', () => {
 
     expect(folder?.name).toBe('中');
     expect(folder?.children?.map(child => child.name)).toEqual(['keep.txt']);
-    expect(fileBytes(folder?.children?.[0])).toEqual(
-      Array.from(strToU8('retained'))
-    );
+    expect(folder?.children?.[0]?.size).toBe(8);
   });
 
   it('indexes Unicode path extra names using their original archive content keys', async () => {
@@ -119,6 +109,11 @@ describe('ZIP filename content mapping', () => {
         data,
         { extra: { 0x7075: unicodePathField('plain.txt', '中文.txt') } },
       ],
+      'rules.txt': [
+        strToU8('ignored.txt\n'),
+        { extra: { 0x7075: unicodePathField('rules.txt', '.gitignore') } },
+      ],
+      'ignored.txt': strToU8('hidden'),
       'utf8-目录.txt': strToU8('UTF-8'),
       'empty.txt': new Uint8Array(),
     });
@@ -129,16 +124,10 @@ describe('ZIP filename content mapping', () => {
     ).read();
     const byName = new Map(tree.children?.map(child => [child.name, child]));
 
-    expect(fileBytes(byName.get('中文.txt'))).toEqual(Array.from(data));
-    expect(fileBytes(byName.get('utf8-目录.txt'))).toEqual(
-      Array.from(strToU8('UTF-8'))
-    );
+    expect(byName.get('中文.txt')?.size).toBe(data.length);
+    expect(byName.get('utf8-目录.txt')?.size).toBe(5);
     expect(byName.get('empty.txt')?.size).toBe(0);
-    expect(fileBytes(byName.get('empty.txt'))).toEqual([]);
-    expect(
-      tree.handle?.source === 'zip-directory' &&
-        Object.keys(tree.handle.entries)
-    ).toEqual(['中文.txt', 'utf8-目录.txt', 'empty.txt']);
+    expect(byName.has('ignored.txt')).toBe(false);
   });
 
   it('rejects ambiguous decoded names instead of associating the wrong content', async () => {

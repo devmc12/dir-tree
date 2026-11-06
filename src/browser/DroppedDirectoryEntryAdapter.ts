@@ -1,7 +1,7 @@
 import {
   BaseFileSystemAdapter,
   type ReadContext,
-} from './BaseFileSystemAdapter';
+} from '../adapters/BaseFileSystemAdapter';
 import type { FileNode, ReadOptions } from '../reader/types';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
@@ -242,10 +242,6 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
     try {
       const file = await this.readEntryFile(entry);
 
-      node.handle = {
-        source: 'legacy-file',
-        file,
-      };
       node.size = file.size;
       node.lastModified = file.lastModified;
 

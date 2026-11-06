@@ -1,7 +1,7 @@
 import {
   BaseFileSystemAdapter,
   type ReadContext,
-} from './BaseFileSystemAdapter';
+} from '../adapters/BaseFileSystemAdapter';
 import type { Entry, FileNode, ReadOptions } from '../reader/types';
 import { attachFileTreeMetadata, sortChildren } from '../reader/utils';
 
@@ -50,10 +50,6 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
       name: rootName,
       path: rootName,
       kind: 'directory',
-      handle: {
-        source: 'file-system-directory',
-        handle: rootHandle,
-      },
       children: [],
     };
 
@@ -203,10 +199,6 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
           name: entry.name,
           path: entry.path,
           kind: 'directory',
-          handle: {
-            source: 'file-system-directory',
-            handle: dirHandle,
-          },
           children: await this.traverseEntries(
             context,
             childEntries,
@@ -244,10 +236,6 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
       name: handle.name,
       path: filePath,
       kind: 'file',
-      handle: {
-        source: 'file-system-file',
-        handle,
-      },
     };
 
     if (!context.options.readFileMeta) {

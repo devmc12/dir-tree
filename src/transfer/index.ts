@@ -1,4 +1,5 @@
 import type { FileNode } from '../reader/types';
+import { copyFileNodeFields } from '../reader/utils';
 import { type TreeAnnotationMap } from '../annotations';
 import {
   buildFileTreeChildPath,
@@ -127,20 +128,16 @@ export function parseImportedFileTreeJson(
  * @param node File node to export
  * @param annotations Annotation map keyed by path
  * @param visibility Visibility map keyed by path
- * @returns Export node without runtime handles
+ * @returns Structural data plus any annotations and visibility
  */
 function createExportedFileTreeNode(
   node: FileNode,
   annotations: TreeAnnotationMap,
   visibility: FileTreeVisibilityMap = {}
 ): ExportedFileTreeNode {
-  const exportedNode: ExportedFileTreeNode = {
-    ...node,
-  };
+  const exportedNode: ExportedFileTreeNode = copyFileNodeFields(node);
   const annotationText = annotations[node.path]?.comment?.trim();
   const visibilityMode = visibility[node.path];
-
-  delete exportedNode.handle;
 
   if (annotationText) {
     exportedNode.comment = annotationText;

@@ -1,10 +1,21 @@
-import type { DroppedFileSystemDirectoryEntry } from '../adapters';
+import type { DroppedFileSystemDirectoryEntry } from './DroppedDirectoryEntryAdapter';
 import type { ImportedTreeFormat } from '../parser';
 
 /**
  * Date: 2026-06-07
  * Desc: Provides optional browser helpers for file tree source integrations
  */
+
+export {
+  DroppedDirectoryEntryAdapter,
+  type DroppedFileSystemDirectoryEntry,
+  type DroppedFileSystemDirectoryReader,
+  type DroppedFileSystemEntry,
+  type DroppedFileSystemEntryBase,
+  type DroppedFileSystemFileEntry,
+} from './DroppedDirectoryEntryAdapter';
+export { LegacyDirectoryFilesAdapter } from './LegacyDirectoryFilesAdapter';
+export { LocalFileSystemAdapter } from './LocalFileSystemAdapter';
 
 interface DirectoryDropCapableDataTransferItemPrototype {
   getAsEntry?: unknown;

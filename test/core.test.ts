@@ -5,22 +5,26 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { NodeFileSystemAdapter } from '../src/node';
 import {
-  FileSystemReader,
   DroppedDirectoryEntryAdapter,
-  InMemoryFileTreeAdapter,
   LegacyDirectoryFilesAdapter,
   LocalFileSystemAdapter,
-  RemoteRepositoryFileSystemAdapter,
-  ZipFileSystemAdapter,
-  createReadOptionsFromConfig,
   type DroppedFileSystemDirectoryEntry,
   type DroppedFileSystemEntry,
   type DroppedFileSystemFileEntry,
+} from '../src/browser';
+import {
+  FileSystemReader,
+  InMemoryFileTreeAdapter,
+  RemoteRepositoryFileSystemAdapter,
+  ZipFileSystemAdapter,
+  createReadOptionsFromConfig,
   type FileNode,
   type RemoteRepositoryApiClient,
   type SortOptions,
+  createExportedFileTreeJson,
 } from '../src';
 import {
+  cloneFileNode,
   createFileTreeNode,
   createFocusedFileTree,
   collapseExpandedFileTreeItems,
@@ -34,7 +38,6 @@ import {
   normalizeExpandedFileTreeItems,
   removeFileTreeNodes,
   renameFileTreeNode,
-  stripFileNodeHandles,
 } from '../src/tree';
 
 /**
@@ -498,7 +501,7 @@ describe('reader adapters', () => {
       createLegacyDirectoryFile('project/src/main.js', 'retained'),
     ];
     const tree = await new LegacyDirectoryFilesAdapter(files).read();
-    const exported = JSON.stringify(stripFileNodeHandles(tree));
+    const exported = JSON.stringify(tree);
 
     expect(exported).not.toContain('bundle.js');
     expect(exported).not.toContain('code.js');
@@ -933,7 +936,7 @@ describe('tree utilities', () => {
     expect(focusedTree?.children?.[0]?.name).toBe('index.ts');
   });
 
-  it('normalizes path lists, visibility maps, expanded state, and handles', () => {
+  it('normalizes path lists, visibility maps, and expanded state', () => {
     expect(
       filterNestedFileTreePaths([
         'project/src/index.ts',
@@ -1016,29 +1019,16 @@ describe('tree utilities', () => {
         'project/app'
       )
     ).toEqual(['project']);
+  });
 
-    const treeWithHandles: FileNode = {
-      name: 'project',
-      path: 'project',
-      kind: 'directory',
-      handle: { source: 'in-memory' },
-      children: [
-        {
-          name: 'README.md',
-          path: 'project/README.md',
-          kind: 'file',
-          handle: { source: 'in-memory' },
-        },
-      ],
+  it('clones and exports structural data without legacy source fields', () => {
+    const input = {
+      ...sampleTree,
+      handle: { source: 'legacy-runtime-value' },
     };
-
-    expect(stripFileNodeHandles(treeWithHandles)).toEqual({
-      name: 'project',
-      path: 'project',
-      kind: 'directory',
-      children: [
-        { name: 'README.md', path: 'project/README.md', kind: 'file' },
-      ],
-    });
+    const clone = cloneFileNode(input);
+    expect(clone).toEqual(sampleTree);
+    expect(clone.children?.[0]).not.toBe(sampleTree.children?.[0]);
+    expect(JSON.parse(createExportedFileTreeJson(input))).toEqual(sampleTree);
   });
 });

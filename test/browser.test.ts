@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isFileTreeSourceDrag,
+  LocalFileSystemAdapter,
   resolveDroppedFileTreeSource,
 } from '../src/browser';
 
@@ -60,6 +61,41 @@ describe('browser file tree source helpers', () => {
       status: 'success',
       source: { format: 'markdown-list', kind: 'import-file' },
     });
+  });
+
+  it('keeps native handles on selected sources without attaching them to nodes', async () => {
+    const handle = {
+      kind: 'directory',
+      name: 'project',
+      async *[Symbol.asyncIterator]() {
+        yield ['notes.txt', { kind: 'file', name: 'notes.txt' }];
+      },
+    };
+    const item = {
+      kind: 'file',
+      getAsFile: () => null,
+      getAsFileSystemHandle: async () => handle,
+    };
+    const result = await resolveDroppedFileTreeSource(
+      createMockDataTransfer([], [item])
+    );
+
+    if (result.status !== 'success' || result.source.kind !== 'directory') {
+      throw new Error('Expected a directory source');
+    }
+
+    expect(result.source.handle).toBe(handle);
+    const reader = new LocalFileSystemAdapter(
+      { useGitignore: false },
+      result.source.handle
+    );
+    const tree = await reader.read();
+
+    expect(tree).not.toHaveProperty('handle');
+    expect(tree.children).toEqual([
+      { name: 'notes.txt', path: 'project/notes.txt', kind: 'file' },
+    ]);
+    expect(await reader.read()).toEqual(tree);
   });
 
   it('returns explicit statuses for empty and unsupported payloads', async () => {

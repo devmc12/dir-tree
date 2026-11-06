@@ -3,55 +3,6 @@
  * Desc: Defines shared file tree and reader option types
  */
 
-export interface BrowserFileNodeHandle {
-  source: 'legacy-file';
-  file: File;
-}
-
-export interface NativeFileNodeHandle {
-  source: 'file-system-file';
-  handle: FileSystemFileHandle;
-}
-
-export interface NativeDirectoryNodeHandle {
-  source: 'file-system-directory';
-  handle: FileSystemDirectoryHandle;
-}
-
-export interface ZipFileNodeHandle {
-  source: 'zip-file';
-  bytes: Uint8Array;
-}
-
-export interface ZipDirectoryNodeHandle {
-  source: 'zip-directory';
-  entries: Record<string, Uint8Array>;
-}
-
-export interface InMemoryFileNodeHandle {
-  source: 'in-memory';
-}
-
-export interface NodeFileNodeHandle {
-  source: 'node-file';
-  absolutePath: string;
-}
-
-export interface NodeDirectoryNodeHandle {
-  source: 'node-directory';
-  absolutePath: string;
-}
-
-export type FileNodeHandle =
-  | BrowserFileNodeHandle
-  | NativeFileNodeHandle
-  | NativeDirectoryNodeHandle
-  | NodeFileNodeHandle
-  | NodeDirectoryNodeHandle
-  | ZipFileNodeHandle
-  | ZipDirectoryNodeHandle
-  | InMemoryFileNodeHandle;
-
 // Stores non-serializable file tree metadata without affecting JSON export
 export const fileTreeMetadataKey = Symbol('fileTreeMetadata');
 
@@ -63,7 +14,6 @@ export interface FileNode {
   lastModified?: number;
   mimeType?: string;
   children?: FileNode[];
-  handle?: FileNodeHandle;
   [fileTreeMetadataKey]?: FileTreeMetadata;
 }
 

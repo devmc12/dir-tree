@@ -532,6 +532,27 @@ export function isPathExcluded(
 }
 
 /**
+ * Copies a node's structural fields without children, indexes, or source data
+ * @param node Source node
+ * @param includeMetadata Whether to copy size, timestamp, and MIME type
+ * @returns A new node containing only declared data fields
+ */
+export function copyFileNodeFields(
+  node: FileNode,
+  includeMetadata = true
+): FileNode {
+  const copy: FileNode = { name: node.name, path: node.path, kind: node.kind };
+
+  if (includeMetadata) {
+    if (node.size !== undefined) copy.size = node.size;
+    if (node.lastModified !== undefined) copy.lastModified = node.lastModified;
+    if (node.mimeType !== undefined) copy.mimeType = node.mimeType;
+  }
+
+  return copy;
+}
+
+/**
  * Clones a tree snapshot while applying read options and filtering
  * @param root Source tree to clone
  * @param options Read options controlling depth, filtering, and metadata
@@ -590,23 +611,7 @@ function cloneFileTreeSnapshotNode(
     return null;
   }
 
-  const nextNode: FileNode = {
-    name: node.name,
-    path: node.path,
-    kind: node.kind,
-  };
-
-  if (shouldIncludeMetadata && node.size !== undefined) {
-    nextNode.size = node.size;
-  }
-
-  if (shouldIncludeMetadata && node.lastModified !== undefined) {
-    nextNode.lastModified = node.lastModified;
-  }
-
-  if (shouldIncludeMetadata && node.mimeType !== undefined) {
-    nextNode.mimeType = node.mimeType;
-  }
+  const nextNode = copyFileNodeFields(node, shouldIncludeMetadata);
 
   if (node.kind !== 'directory') {
     return nextNode;

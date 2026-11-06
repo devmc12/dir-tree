@@ -142,12 +142,31 @@ try {
   );
   writeFileSync(
     join(smokeRoot, 'types-smoke.ts'),
-    `import { FileSystemReader, InMemoryFileTreeAdapter, attachFileTreeMetadata, createFileTreeFromSnapshot, createReadOptionsFromConfig, formatSize, getFileTreeMetadata, type FileNode, type ReadOptionsConfig } from '@devmc12/dir-tree';\nimport { RemoteRepositoryError, RemoteRepositoryFileSystemAdapter, type DroppedFileSystemDirectoryEntry } from '@devmc12/dir-tree/adapters';\nimport { createAsciiTreeOptionsFromConfig, renderAsciiTreeLines, type AsciiTreeOptionsConfig } from '@devmc12/dir-tree/ascii';\nimport { createAnnotationDiffResult, createAnnotationProviderRequest, createAnnotatedAsciiTreeRenderOptionsFromConfig, createTreeAnnotationPatchesFromProviderResult, resolveTreeAnnotationsAfterRead, type AnnotatedAsciiTreeRenderOptionsConfig, type AnnotationProviderRequest, type AnnotationProviderResult, type TreeAnnotationMap, type TreeAnnotationRetentionMode } from '@devmc12/dir-tree/annotations';\nimport { isDirectoryPickerSupported, type DroppedFileTreeSource } from '@devmc12/dir-tree/browser';\nimport { NodeFileSystemAdapter } from '@devmc12/dir-tree/node';\nimport { parseImportedTreeText } from '@devmc12/dir-tree/parser';\nimport { createTreeSelectionModel } from '@devmc12/dir-tree/selection';\nimport { createExportedFileTreeJson } from '@devmc12/dir-tree/transfer';\nimport { createFileTreeNode } from '@devmc12/dir-tree/tree';\nconst tree: FileNode = { name: 'project', path: 'project', kind: 'directory', children: [] };\nconst annotations: TreeAnnotationMap = {};\nconst retentionMode: TreeAnnotationRetentionMode = 'matching-paths';\nconst reader = new FileSystemReader(new InMemoryFileTreeAdapter(tree));\nconst parsed = parseImportedTreeText('project\\n└── src', 'project');\nconst created = createFileTreeNode(parsed.tree, parsed.tree.path, { kind: 'file', name: 'README.md' });\nconst snapshot = createFileTreeFromSnapshot({ name: 'snapshot', path: 'snapshot', kind: 'directory', children: [{ name: 'file.bin', path: 'snapshot/file.bin', kind: 'file', size: 2048 }] }, { readFileMeta: true });\nconst metadata = attachFileTreeMetadata(snapshot);\nconst source: DroppedFileTreeSource | null = null;\nconst entry: DroppedFileSystemDirectoryEntry | null = null;\nconst readOptionConfig: ReadOptionsConfig = { excludePatterns: 'dist\\nnode_modules', concurrencyEnabled: false };\nconst asciiOptionConfig: AsciiTreeOptionsConfig = { showMetadata: true };\nconst annotatedAsciiConfig: AnnotatedAsciiTreeRenderOptionsConfig = { commentPrefix: '#' };\nconst annotationProviderResult: AnnotationProviderResult = { annotations: [{ path: 'project', comment: 'Root' }] };\nnew RemoteRepositoryFileSystemAdapter({ repositoryUrl: 'https://github.com/acme/project' });\nnew RemoteRepositoryError({ code: 'unknown', message: 'x' });\nnew NodeFileSystemAdapter('.');\ncreateAnnotationDiffResult(annotations, [], new Set([tree.path]));\ncreateExportedFileTreeJson(tree, annotations);\ncreateTreeSelectionModel({ rootId: 'root', items: { root: { id: 'root' } } }, []);\ncreateReadOptionsFromConfig(readOptionConfig);\ncreateAsciiTreeOptionsFromConfig(asciiOptionConfig);\ncreateAnnotatedAsciiTreeRenderOptionsFromConfig(annotatedAsciiConfig);\nconst annotationProviderRequest: AnnotationProviderRequest = createAnnotationProviderRequest({ tree });\ncreateTreeAnnotationPatchesFromProviderResult(annotationProviderResult, annotationProviderRequest.sourcePaths);\nresolveTreeAnnotationsAfterRead(tree, annotations, retentionMode);\nisDirectoryPickerSupported();\nformatSize(metadata.stats.totalSize);\ngetFileTreeMetadata(snapshot);\nrenderAsciiTreeLines(await reader.read());\nvoid source;\nvoid entry;\nif (!created) throw new Error('create failed');\n`
+    `import { FileSystemReader, InMemoryFileTreeAdapter, attachFileTreeMetadata, createFileTreeFromSnapshot, createReadOptionsFromConfig, formatSize, getFileTreeMetadata, type FileNode, type ReadOptionsConfig } from '@devmc12/dir-tree';\nimport { RemoteRepositoryError, RemoteRepositoryFileSystemAdapter } from '@devmc12/dir-tree/adapters';\nimport { createAsciiTreeOptionsFromConfig, renderAsciiTreeLines, type AsciiTreeOptionsConfig } from '@devmc12/dir-tree/ascii';\nimport { createAnnotationDiffResult, createAnnotationProviderRequest, createAnnotatedAsciiTreeRenderOptionsFromConfig, createTreeAnnotationPatchesFromProviderResult, resolveTreeAnnotationsAfterRead, type AnnotatedAsciiTreeRenderOptionsConfig, type AnnotationProviderRequest, type AnnotationProviderResult, type TreeAnnotationMap, type TreeAnnotationRetentionMode } from '@devmc12/dir-tree/annotations';\nimport { NodeFileSystemAdapter } from '@devmc12/dir-tree/node';\nimport { parseImportedTreeText } from '@devmc12/dir-tree/parser';\nimport { createTreeSelectionModel } from '@devmc12/dir-tree/selection';\nimport { createExportedFileTreeJson } from '@devmc12/dir-tree/transfer';\nimport { createFileTreeNode } from '@devmc12/dir-tree/tree';\nconst tree: FileNode = { name: 'project', path: 'project', kind: 'directory', children: [] };\nconst annotations: TreeAnnotationMap = {};\nconst retentionMode: TreeAnnotationRetentionMode = 'matching-paths';\nconst reader = new FileSystemReader(new InMemoryFileTreeAdapter(tree));\nconst parsed = parseImportedTreeText('project\\n└── src', 'project');\nconst created = createFileTreeNode(parsed.tree, parsed.tree.path, { kind: 'file', name: 'README.md' });\nconst snapshot = createFileTreeFromSnapshot({ name: 'snapshot', path: 'snapshot', kind: 'directory', children: [{ name: 'file.bin', path: 'snapshot/file.bin', kind: 'file', size: 2048 }] }, { readFileMeta: true });\nconst metadata = attachFileTreeMetadata(snapshot);\nconst readOptionConfig: ReadOptionsConfig = { excludePatterns: 'dist\\nnode_modules', concurrencyEnabled: false };\nconst asciiOptionConfig: AsciiTreeOptionsConfig = { showMetadata: true };\nconst annotatedAsciiConfig: AnnotatedAsciiTreeRenderOptionsConfig = { commentPrefix: '#' };\nconst annotationProviderResult: AnnotationProviderResult = { annotations: [{ path: 'project', comment: 'Root' }] };\nnew RemoteRepositoryFileSystemAdapter({ repositoryUrl: 'https://github.com/acme/project' });\nnew RemoteRepositoryError({ code: 'unknown', message: 'x' });\nnew NodeFileSystemAdapter('.');\ncreateAnnotationDiffResult(annotations, [], new Set([tree.path]));\ncreateExportedFileTreeJson(tree, annotations);\ncreateTreeSelectionModel({ rootId: 'root', items: { root: { id: 'root' } } }, []);\ncreateReadOptionsFromConfig(readOptionConfig);\ncreateAsciiTreeOptionsFromConfig(asciiOptionConfig);\ncreateAnnotatedAsciiTreeRenderOptionsFromConfig(annotatedAsciiConfig);\nconst annotationProviderRequest: AnnotationProviderRequest = createAnnotationProviderRequest({ tree });\ncreateTreeAnnotationPatchesFromProviderResult(annotationProviderResult, annotationProviderRequest.sourcePaths);\nresolveTreeAnnotationsAfterRead(tree, annotations, retentionMode);\nformatSize(metadata.stats.totalSize);\ngetFileTreeMetadata(snapshot);\nrenderAsciiTreeLines(await reader.read());\nif (!created) throw new Error('create failed');\n`
+  );
+
+  writeFileSync(
+    join(smokeRoot, 'browser-types-smoke.ts'),
+    [
+      "import { DroppedDirectoryEntryAdapter, LegacyDirectoryFilesAdapter, LocalFileSystemAdapter, isDirectoryPickerSupported, type DroppedFileTreeSource, type DroppedFileSystemDirectoryEntry } from '@devmc12/dir-tree/browser';",
+      "import { FileSystemReader, type FileNode } from '@devmc12/dir-tree';",
+      'declare const source: DroppedFileTreeSource;',
+      'declare const entry: DroppedFileSystemDirectoryEntry;',
+      'declare const files: FileList;',
+      "const reader = new FileSystemReader(source.kind === 'directory' && source.handle ? new LocalFileSystemAdapter({}, source.handle) : new DroppedDirectoryEntryAdapter(entry));",
+      'const tree: FileNode = await reader.read();',
+      'new LegacyDirectoryFilesAdapter(files);',
+      'void tree;',
+      'isDirectoryPickerSupported();',
+      '',
+    ].join('\n')
   );
 
   const typeScriptCompilerOptions = {
     exactOptionalPropertyTypes: true,
-    lib: ['DOM', 'ES2022'],
+    lib: ['ES2022'],
+    types: ['node'],
+    skipLibCheck: false,
     noEmit: true,
     strict: true,
     target: 'ES2022',
@@ -183,6 +202,19 @@ try {
       2
     )}\n`
   );
+  writeFileSync(
+    join(smokeRoot, 'tsconfig.browser.json'),
+    JSON.stringify({
+      compilerOptions: {
+        ...typeScriptCompilerOptions,
+        lib: ['DOM', 'ES2022'],
+        types: [],
+        module: 'ESNext',
+        moduleResolution: 'Bundler',
+      },
+      include: ['browser-types-smoke.ts'],
+    })
+  );
   execFileSync(process.execPath, ['esm-smoke.mjs'], {
     cwd: smokeRoot,
     stdio: 'inherit',
@@ -202,6 +234,14 @@ try {
   execFileSync(
     process.execPath,
     [tscPath, '--project', 'tsconfig.node16.json'],
+    {
+      cwd: smokeRoot,
+      stdio: 'inherit',
+    }
+  );
+  execFileSync(
+    process.execPath,
+    [tscPath, '--project', 'tsconfig.browser.json'],
     {
       cwd: smokeRoot,
       stdio: 'inherit',

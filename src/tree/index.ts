@@ -1,5 +1,9 @@
 import type { FileNode, FileTreeItem } from '../reader/types';
-import { attachFileTreeMetadata, getFileTreeMetadata } from '../reader/utils';
+import {
+  attachFileTreeMetadata,
+  copyFileNodeFields,
+  getFileTreeMetadata,
+} from '../reader/utils';
 
 /**
  * Date: 2026-06-07
@@ -51,14 +55,12 @@ export type FileTreeVisibilityMode = 'hidden' | 'children-hidden';
 export type FileTreeVisibilityMap = Record<string, FileTreeVisibilityMode>;
 
 /**
- * Deeply clones a file tree node and its children
+ * Recursively copies a file tree's structural fields and metadata values
  * @param node File node to clone
- * @returns Cloned file node
+ * @returns A separate tree without attached lookup indexes
  */
 export function cloneFileNode(node: FileNode): FileNode {
-  const clonedNode: FileNode = {
-    ...node,
-  };
+  const clonedNode = copyFileNodeFields(node);
 
   if (node.children) {
     clonedNode.children = node.children.map(cloneFileNode);
@@ -688,18 +690,6 @@ export function remapExpandedFileTreeItemsAfterMove(
       remapFileTreePathPrefix(item, fromPath, toPath)
     )
   );
-}
-
-/**
- * Removes runtime handles from a tree in place before transfer
- * @param node Node to strip
- * @returns The same node after handle removal
- */
-export function stripFileNodeHandles(node: FileNode): FileNode {
-  delete node.handle;
-  node.children?.forEach(stripFileNodeHandles);
-
-  return node;
 }
 
 /**

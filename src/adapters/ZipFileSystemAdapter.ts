@@ -60,10 +60,6 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
       path: this.zipName,
       kind: 'directory',
       children: [],
-      handle: {
-        source: 'zip-directory',
-        entries: zipData,
-      },
     };
 
     if (context.options.useGitignore) {
@@ -104,10 +100,6 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
         name: fullPath.substring(parentPath.length + 1),
         path: fullPath,
         kind: 'file',
-        handle: {
-          source: 'zip-file',
-          bytes: fileData,
-        },
       };
 
       if (context.options.readFileMeta) {

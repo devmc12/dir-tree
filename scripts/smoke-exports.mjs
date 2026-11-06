@@ -38,13 +38,9 @@ const requiredExports = [
   [root, 'createReadOptionsFromConfig'],
   [root, 'formatSize'],
   [root, 'getFileTreeMetadata'],
-  [root, 'DroppedDirectoryEntryAdapter'],
   [root, 'InMemoryFileTreeAdapter'],
-  [root, 'LegacyDirectoryFilesAdapter'],
-  [adapters, 'DroppedDirectoryEntryAdapter'],
   [adapters, 'RemoteRepositoryError'],
   [adapters, 'RemoteRepositoryFileSystemAdapter'],
-  [adapters, 'LegacyDirectoryFilesAdapter'],
   [adapters, 'parseRemoteRepositoryUrl'],
   [adapters, 'resolveRemoteRepositoryBranches'],
   [annotations, 'createAnnotationDiffResult'],
@@ -54,6 +50,9 @@ const requiredExports = [
   [annotations, 'resolveTreeAnnotationsAfterRead'],
   [ascii, 'createAsciiTreeOptionsFromConfig'],
   [ascii, 'renderAsciiTree'],
+  [browser, 'DroppedDirectoryEntryAdapter'],
+  [browser, 'LegacyDirectoryFilesAdapter'],
+  [browser, 'LocalFileSystemAdapter'],
   [browser, 'isDirectoryPickerSupported'],
   [browser, 'createLegacyDirectorySkipMatcher'],
   [browser, 'resolveDroppedFileTreeSource'],
@@ -77,12 +76,8 @@ for (const [moduleExports, exportName] of [
   [commonJsModules[0], 'createReadOptionsFromConfig'],
   [commonJsModules[0], 'formatSize'],
   [commonJsModules[0], 'getFileTreeMetadata'],
-  [commonJsModules[0], 'DroppedDirectoryEntryAdapter'],
-  [commonJsModules[0], 'LegacyDirectoryFilesAdapter'],
-  [commonJsModules[1], 'DroppedDirectoryEntryAdapter'],
   [commonJsModules[1], 'RemoteRepositoryError'],
   [commonJsModules[1], 'RemoteRepositoryFileSystemAdapter'],
-  [commonJsModules[1], 'LegacyDirectoryFilesAdapter'],
   [commonJsModules[1], 'resolveRemoteRepositoryBranches'],
   [commonJsModules[2], 'createAnnotationDiffResult'],
   [commonJsModules[2], 'createAnnotationProviderRequest'],
@@ -91,6 +86,9 @@ for (const [moduleExports, exportName] of [
   [commonJsModules[2], 'resolveTreeAnnotationsAfterRead'],
   [commonJsModules[3], 'createAsciiTreeOptionsFromConfig'],
   [commonJsModules[3], 'renderAsciiTree'],
+  [commonJsModules[4], 'DroppedDirectoryEntryAdapter'],
+  [commonJsModules[4], 'LegacyDirectoryFilesAdapter'],
+  [commonJsModules[4], 'LocalFileSystemAdapter'],
   [commonJsModules[4], 'isDirectoryPickerSupported'],
   [commonJsModules[4], 'createLegacyDirectorySkipMatcher'],
   [commonJsModules[4], 'resolveDroppedFileTreeSource'],
@@ -102,5 +100,30 @@ for (const [moduleExports, exportName] of [
 ]) {
   if (!(exportName in moduleExports)) {
     throw new Error(`Missing CommonJS package export: ${exportName}`);
+  }
+}
+
+const browserAdapters = [
+  'DroppedDirectoryEntryAdapter',
+  'LegacyDirectoryFilesAdapter',
+  'LocalFileSystemAdapter',
+];
+
+for (const exports of [
+  root,
+  adapters,
+  commonJsModules[0],
+  commonJsModules[1],
+]) {
+  for (const name of browserAdapters) {
+    if (name in exports) {
+      throw new Error('Browser adapter leaked into a common entry: ' + name);
+    }
+  }
+}
+
+for (const exports of [root, tree, commonJsModules[0], commonJsModules[9]]) {
+  if ('stripFileNodeHandles' in exports) {
+    throw new Error('Removed node handle API is still exported');
   }
 }

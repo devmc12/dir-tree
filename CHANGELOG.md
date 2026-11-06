@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Move browser directory adapters and dropped-entry types to the `/browser` entry
+- Keep file nodes structural and remove `FileNode.handle` and `stripFileNodeHandles`; adapters retain their sources for repeated reads
+
 ## 1.0.5
 
 - Reject tree moves that would create duplicate sibling paths while preserving same-parent reordering

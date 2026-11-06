@@ -14,7 +14,6 @@ export {
 export type {
   Entry,
   FileNode,
-  FileNodeHandle,
   FileTreeItem,
   FileTreeMetadata,
   FileTreeStats,
@@ -27,19 +26,11 @@ export type {
 } from './reader';
 export {
   BaseFileSystemAdapter,
-  DroppedDirectoryEntryAdapter,
   InMemoryFileTreeAdapter,
-  LegacyDirectoryFilesAdapter,
-  LocalFileSystemAdapter,
   RemoteRepositoryFileSystemAdapter,
   ZipFileSystemAdapter,
 } from './adapters';
 export type {
-  DroppedFileSystemDirectoryEntry,
-  DroppedFileSystemDirectoryReader,
-  DroppedFileSystemEntry,
-  DroppedFileSystemEntryBase,
-  DroppedFileSystemFileEntry,
   IFileSystemAdapter,
   ReaderAdapter,
   RemoteRepositoryAdapterOptions,
@@ -133,7 +124,6 @@ export {
   removeFileTreeNode,
   removeFileTreeNodes,
   renameFileTreeNode,
-  stripFileNodeHandles,
 } from './tree';
 export type {
   FileNodeLocation,
