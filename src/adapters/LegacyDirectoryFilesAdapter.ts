@@ -139,10 +139,7 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
     const tasks = entries
       .filter(entry => entry.name === '.gitignore')
       .map(entry => async (): Promise<void> => {
-        const dirRelPath =
-          entry.relativeSegments.length === 1 ? '' : entry.parentPath;
-
-        this.registerGitignoreRules(dirRelPath, await entry.file.text());
+        this.registerGitignoreRules(entry.parentPath, await entry.file.text());
       });
 
     await this.executeTasks(tasks);

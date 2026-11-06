@@ -184,6 +184,26 @@ function createLocalDirectoryHandle(
 }
 
 describe('reader adapters', () => {
+  it('anchors legacy root gitignore rules to the selected project path', async () => {
+    const files = [
+      createLegacyDirectoryFile(
+        'project/.gitignore',
+        '/dist/\nsrc/generated/\n'
+      ),
+      createLegacyDirectoryFile('project/dist/bundle.js', 'ignored'),
+      createLegacyDirectoryFile('project/src/generated/code.js', 'ignored'),
+      createLegacyDirectoryFile('project/nested/dist/keep.js', 'retained'),
+      createLegacyDirectoryFile('project/src/main.js', 'retained'),
+    ];
+    const tree = await new LegacyDirectoryFilesAdapter(files).read();
+    const exported = JSON.stringify(stripFileNodeHandles(tree));
+
+    expect(exported).not.toContain('bundle.js');
+    expect(exported).not.toContain('code.js');
+    expect(exported).toContain('project/nested/dist/keep.js');
+    expect(exported).toContain('project/src/main.js');
+  });
+
   it('normalizes host read option configuration', () => {
     expect(
       createReadOptionsFromConfig({

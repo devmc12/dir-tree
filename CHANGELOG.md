@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 - Reject tree moves that would create duplicate sibling paths while preserving same-parent reordering
+- Anchor legacy directory picker gitignore rules to the selected project root consistently with other adapters
 
 ## 1.0.4
 
