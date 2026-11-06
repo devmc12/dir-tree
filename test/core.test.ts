@@ -553,6 +553,29 @@ describe('reader adapters', () => {
     expect(tree.children?.[0]?.children?.[0]?.size).toBe(120);
   });
 
+  it.each([
+    ['empty text', { excludePatterns: '' }],
+    ['whitespace', { excludePatterns: ' \n\t ' }],
+    ['empty array', { exclude: [] }],
+    [
+      'empty array taking precedence over text',
+      { exclude: [], excludePatterns: 'src' },
+    ],
+  ])('clears a constructor exclude with %s', async (_, config) => {
+    const adapter = new InMemoryFileTreeAdapter(sampleTree, {
+      exclude: ['README.md'],
+    });
+
+    const inherited = await adapter.read(createReadOptionsFromConfig({}));
+    const cleared = await adapter.read(createReadOptionsFromConfig(config));
+
+    expect(inherited.children?.map(node => node.name)).toEqual(['src']);
+    expect(cleared.children?.map(node => node.name)).toEqual([
+      'src',
+      'README.md',
+    ]);
+  });
+
   it('reads ZIP file trees with filters, metadata, and gitignore rules', async () => {
     const bytes = zipSync({
       'src/index.ts': strToU8('export const value = 1;'),

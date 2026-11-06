@@ -54,7 +54,7 @@ export function createReadOptionsFromConfig(
 
   const exclude = normalizeExcludePatterns(config);
 
-  if (exclude.length > 0) {
+  if (exclude !== undefined) {
     options.exclude = exclude;
   }
 
@@ -76,15 +76,17 @@ export function createReadOptionsFromConfig(
 /**
  * Normalizes exclude patterns from array or multiline text
  * @param config Reader config that may contain exclude fields
- * @returns Trimmed non-empty exclude patterns
+ * @returns Trimmed patterns, or undefined when neither field is supplied
  */
-function normalizeExcludePatterns(config: ReadOptionsConfig): string[] {
-  if (config.exclude) {
+function normalizeExcludePatterns(
+  config: ReadOptionsConfig
+): string[] | undefined {
+  if (config.exclude !== undefined) {
     return config.exclude.map(pattern => pattern.trim()).filter(Boolean);
   }
 
   if (config.excludePatterns === undefined) {
-    return [];
+    return undefined;
   }
 
   return config.excludePatterns
