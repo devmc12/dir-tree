@@ -77,7 +77,7 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
 
       const fullPath = `${root.path}/${relativePath}`;
 
-      if (this.isHiddenOrExcluded(fullPath)) {
+      if (this.isHiddenOrExcluded(fullPath, entry.isDir)) {
         return;
       }
 
@@ -249,14 +249,20 @@ export class ZipFileSystemAdapter extends BaseFileSystemAdapter {
   /**
    * Checks whether a ZIP entry path should be skipped
    * @param fullPath Tree-relative path to test
+   * @param isDirectory Whether the entry represents a directory
    * @returns True when hidden, exclude, or gitignore rules skip the path
    */
-  private isHiddenOrExcluded(fullPath: string): boolean {
+  private isHiddenOrExcluded(fullPath: string, isDirectory: boolean): boolean {
     return (
       (!this.showHidden &&
         fullPath.split('/').some(part => part.startsWith('.'))) ||
       this.isPathExcludedByPatterns(fullPath) ||
-      (this.useGitignore && this.isGitIgnored(fullPath))
+      (this.useGitignore &&
+        this.isGitIgnored(
+          fullPath,
+          getParentPath(fullPath),
+          isDirectory ? 'directory' : 'file'
+        ))
     );
   }
 }

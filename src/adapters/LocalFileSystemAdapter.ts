@@ -90,7 +90,10 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
         continue;
       }
 
-      if (this.useGitignore && this.isGitIgnored(childPath, currentDirPath)) {
+      if (
+        this.useGitignore &&
+        this.isGitIgnored(childPath, currentDirPath, childHandle.kind)
+      ) {
         continue;
       }
 

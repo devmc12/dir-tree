@@ -90,7 +90,14 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
         continue;
       }
 
-      if (this.useGitignore && this.isGitIgnored(childTreePath, treeDirPath)) {
+      if (
+        this.useGitignore &&
+        this.isGitIgnored(
+          childTreePath,
+          treeDirPath,
+          isDirectory ? 'directory' : 'file'
+        )
+      ) {
         continue;
       }
 

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
+import { NodeFileSystemAdapter } from '../src/node';
 import {
   FileSystemReader,
   DroppedDirectoryEntryAdapter,
@@ -184,6 +188,117 @@ function createLocalDirectoryHandle(
 }
 
 describe('reader adapters', () => {
+  it('honors directory-only gitignore rules in the Node adapter', async () => {
+    const prefix = join(tmpdir(), 'dir-tree-ignore-');
+    const directory = await mkdtemp(prefix);
+
+    try {
+      await writeFile(
+        join(directory, '.gitignore'),
+        'build/\nblocked/\n!blocked/keep.txt\n'
+      );
+      await writeFile(join(directory, 'build'), 'regular file');
+      await mkdir(join(directory, 'blocked'));
+      await writeFile(join(directory, 'blocked', 'keep.txt'), 'ignored');
+      const tree = await new NodeFileSystemAdapter(directory).read();
+
+      expect(tree.name).toBe(basename(directory));
+      expect(tree.children?.map(child => child.name)).toEqual(['build']);
+    } finally {
+      if (directory.startsWith(prefix)) {
+        await rm(directory, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it.each(['zip', 'legacy', 'local', 'dropped'] as const)(
+    'honors directory-only rules and excluded ancestors with the %s adapter',
+    async adapterKind => {
+      const ignore =
+        'build/\nblocked/\n!blocked/keep.txt\nrestored/\n!restored/\n';
+      const contents = {
+        '.gitignore': ignore,
+        build: 'keep the regular file',
+        'nested/build/drop.txt': 'ignored directory child',
+        'blocked/.gitignore': '!keep.txt\n',
+        'blocked/keep.txt': 'ignored despite child negation',
+        'restored/keep.txt': 'keep after restoring parent',
+      };
+      let adapter;
+
+      if (adapterKind === 'zip') {
+        adapter = new ZipFileSystemAdapter(
+          zipSync(
+            Object.fromEntries(
+              Object.entries(contents).map(([path, text]) => [
+                path,
+                strToU8(text),
+              ])
+            )
+          ),
+          {},
+          'project'
+        );
+      } else if (adapterKind === 'legacy') {
+        adapter = new LegacyDirectoryFilesAdapter(
+          Object.entries(contents).map(([path, text]) =>
+            createLegacyDirectoryFile(`project/${path}`, text)
+          )
+        );
+      } else if (adapterKind === 'local') {
+        const handle = createLocalDirectoryHandle('project', [
+          createLocalFileHandle('.gitignore', ignore),
+          createLocalFileHandle('build', contents.build),
+          createLocalDirectoryHandle('nested', [
+            createLocalDirectoryHandle('build', [
+              createLocalFileHandle('drop.txt', 'ignored'),
+            ]),
+          ]),
+          createLocalDirectoryHandle('blocked', [
+            createLocalFileHandle('.gitignore', '!keep.txt\n'),
+            createLocalFileHandle('keep.txt', 'ignored'),
+          ]),
+          createLocalDirectoryHandle('restored', [
+            createLocalFileHandle('keep.txt', 'retained'),
+          ]),
+        ]);
+        adapter = new LocalFileSystemAdapter(
+          {},
+          handle as unknown as FileSystemDirectoryHandle
+        );
+      } else {
+        adapter = new DroppedDirectoryEntryAdapter(
+          createDroppedDirectoryEntry('project', [
+            createDroppedFileEntry('.gitignore', ignore),
+            createDroppedFileEntry('build', contents.build),
+            createDroppedDirectoryEntry('nested', [
+              createDroppedDirectoryEntry('build', [
+                createDroppedFileEntry('drop.txt', 'ignored'),
+              ]),
+            ]),
+            createDroppedDirectoryEntry('blocked', [
+              createDroppedFileEntry('.gitignore', '!keep.txt\n'),
+              createDroppedFileEntry('keep.txt', 'ignored'),
+            ]),
+            createDroppedDirectoryEntry('restored', [
+              createDroppedFileEntry('keep.txt', 'retained'),
+            ]),
+          ])
+        );
+      }
+
+      const collectFiles = (node: FileNode): string[] =>
+        node.kind === 'file'
+          ? [node.path]
+          : (node.children ?? []).flatMap(collectFiles);
+
+      expect(collectFiles(await adapter.read()).sort()).toEqual([
+        'project/build',
+        'project/restored/keep.txt',
+      ]);
+    }
+  );
+
   it('anchors legacy root gitignore rules to the selected project path', async () => {
     const files = [
       createLegacyDirectoryFile(

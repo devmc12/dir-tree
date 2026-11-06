@@ -155,11 +155,13 @@ export abstract class BaseFileSystemAdapter implements ReaderAdapter {
    * Tests a path against loaded gitignore rules from root to parent directory
    * @param filePath Tree path to test
    * @param parentDirPath Parent directory path used to collect scoped rules
+   * @param kind Kind of the node being tested
    * @returns True when the path is ignored
    */
   protected isGitIgnored(
     filePath: string,
-    parentDirPath = getParentPath(filePath)
+    parentDirPath = getParentPath(filePath),
+    kind: FileNode['kind'] = 'file'
   ): boolean {
     const allRules: GitignoreRule[] = [];
     const rootRules = this.gitignoreRules.get('');
@@ -171,19 +173,42 @@ export abstract class BaseFileSystemAdapter implements ReaderAdapter {
     const parts = parentDirPath.split('/').filter(Boolean);
     let accumulatedPath = '';
 
-    parts.forEach(part => {
+    for (const part of parts) {
       accumulatedPath = accumulatedPath ? `${accumulatedPath}/${part}` : part;
+
+      if (this.matchesGitignoreRules(accumulatedPath, 'directory', allRules)) {
+        return true;
+      }
+
       const rules = this.gitignoreRules.get(accumulatedPath);
 
       if (rules) {
         allRules.push(...rules);
       }
-    });
+    }
 
+    return this.matchesGitignoreRules(filePath, kind, allRules);
+  }
+
+  /**
+   * Applies ordered ignore rules to one node without traversing its descendants
+   * @param path Tree path to test
+   * @param kind Node kind used for directory-only patterns
+   * @param rules Applicable rules ordered from outer scopes to inner scopes
+   * @returns True when the last matching rule excludes the node
+   */
+  private matchesGitignoreRules(
+    path: string,
+    kind: FileNode['kind'],
+    rules: GitignoreRule[]
+  ): boolean {
     let ignored = false;
 
-    allRules.forEach(rule => {
-      if (rule.regex.test(filePath)) {
+    rules.forEach(rule => {
+      if (
+        (!rule.directoryOnly || kind === 'directory') &&
+        rule.regex.test(path)
+      ) {
         ignored = !rule.negate;
       }
     });

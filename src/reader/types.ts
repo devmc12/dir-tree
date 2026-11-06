@@ -113,6 +113,7 @@ export interface ReadOptions {
 export interface GitignoreRule {
   negate: boolean;
   regex: RegExp;
+  directoryOnly?: boolean;
 }
 
 export interface Entry {

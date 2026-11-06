@@ -146,7 +146,14 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
       return false;
     }
 
-    return !(this.useGitignore && this.isGitIgnored(childPath, currentDirPath));
+    return !(
+      this.useGitignore &&
+      this.isGitIgnored(
+        childPath,
+        currentDirPath,
+        entry.isDirectory ? 'directory' : 'file'
+      )
+    );
   }
 
   /**

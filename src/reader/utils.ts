@@ -331,6 +331,7 @@ export function parseGitignore(
       pattern = pattern.slice(1);
     }
 
+    const directoryOnly = pattern.endsWith('/');
     pattern = pattern.replace(/\/$/u, '');
 
     const isAnchored = pattern.startsWith('/');
@@ -345,7 +346,11 @@ export function parseGitignore(
       : relativePattern;
 
     try {
-      rules.push({ negate, regex: globToRegex(fullPattern) });
+      rules.push({
+        negate,
+        regex: globToRegex(fullPattern),
+        ...(directoryOnly ? { directoryOnly: true } : {}),
+      });
     } catch {
       // Ignore invalid ignore patterns
     }
