@@ -28,5 +28,16 @@ export default tseslint.config(
         URL: 'readonly',
       },
     },
+  },
+  {
+    // These two consumers exercise the CommonJS package entries
+    files: [
+      'scripts/fixtures/cjs-smoke.cjs',
+      'scripts/fixtures/node-types-smoke.cts',
+    ],
+    languageOptions: {
+      globals: { require: 'readonly' },
+    },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   }
 );

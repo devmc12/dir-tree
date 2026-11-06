@@ -27,3 +27,23 @@ jobs:
       - run: npm ci --prefix playground
       - run: npm --prefix playground run typecheck
       - run: npm run build:playground
+
+  minimum-runtime:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.18.1'
+      - name: Save the minimum runtime executable
+        run: node -e "require('node:fs').appendFileSync(process.env.GITHUB_ENV, 'DIR_TREE_CONSUMER_NODE=' + process.execPath + '\n')"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run smoke:install

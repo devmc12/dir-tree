@@ -41,7 +41,7 @@ npm install @devmc12/dir-tree
 
 Requirements:
 
-- Node.js `>=18.18`
+- Node.js `>=18.18.1` for the installed package. Use Node.js 22 for repository development and tests
 - TypeScript users can import types directly from the package
 - The core and most adapters are isomorphic. Node.js filesystem reading is exposed from `@devmc12/dir-tree/node`, and browser-only APIs are exposed from `@devmc12/dir-tree/browser`
 

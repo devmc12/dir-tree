@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Report unreadable ignore files with stable error codes and expose optional metadata warnings through `onWarning`
 - Reject duplicate normalized paths and invalid node structures before publishing imported trees
 - Index ZIP trees without inflating ordinary entries, bound filesystem I/O per read, and apply batch annotation patches with one map copy
+- Resolve separate TypeScript declarations for ESM and CommonJS and verify the package on Node.js 18.18.1
 
 ## 1.0.5
 

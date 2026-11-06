@@ -23,7 +23,7 @@ Key principles:
 - Test: `vitest`
 - Lint: `eslint`
 - Format: `prettier`
-- Runtime target: Node.js `>=18.18`, ES2020
+- Runtime target: Node.js `>=18.18.1`, ES2020; build and test with Node.js 22
 
 <!-- END:tech-stack -->
 

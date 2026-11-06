@@ -1,264 +1,129 @@
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseNpmPackResult } from './parse-npm-pack-result.mjs';
 
 /**
  * Date: 2026-06-07
- * Desc: Verifies the packed package works after local npm installation
+ * Desc: Verifies the packed package in isolated runtime and TypeScript consumers
  */
 
 const workspaceRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const smokeParentRoot = join(workspaceRoot, '.tmp');
-const smokeRoot = join(smokeParentRoot, 'install-smoke');
 const npmExecPath = process.env.npm_execpath;
 const npmCommand = npmExecPath ? process.execPath : 'npm';
-const cachePath =
-  process.env.DIR_TREE_NPM_CACHE ?? join(workspaceRoot, '.npm-cache');
-const localFflatePath = join(workspaceRoot, 'node_modules', 'fflate');
+const consumerNode = process.env.DIR_TREE_CONSUMER_NODE ?? process.execPath;
 const tscPath = join(workspaceRoot, 'node_modules', 'typescript', 'bin', 'tsc');
 const npmEnv = {
   ...process.env,
-  npm_config_cache: cachePath,
+  npm_config_cache:
+    process.env.DIR_TREE_NPM_CACHE ??
+    process.env.npm_config_cache ??
+    join(workspaceRoot, '.npm-cache'),
 };
 
-function runNpm(args, options = {}) {
+const runtimeFixtures = [
+  'esm-smoke.mjs',
+  'cjs-smoke.cjs',
+  'cross-entry-smoke.mjs',
+];
+const nodeFixtures = ['node-types-smoke.mts', 'node-types-smoke.cts'];
+const browserFixture = 'browser-types-smoke.mts';
+
+/**
+ * Runs npm with the same executable that launched the smoke command
+ */
+function runNpm(args, cwd, stdio = 'pipe') {
   return execFileSync(npmCommand, npmExecPath ? [npmExecPath, ...args] : args, {
-    cwd: options.cwd ?? workspaceRoot,
+    cwd,
     encoding: 'utf8',
     env: npmEnv,
-    stdio: options.stdio ?? 'pipe',
+    stdio,
   });
 }
 
-rmSync(smokeRoot, { force: true, recursive: true });
-mkdirSync(smokeRoot, { recursive: true });
+/**
+ * Runs a strict declaration check without imposing Node types on browser consumers
+ */
+function checkTypes(cwd, module, moduleResolution, files, browser = false) {
+  const config = 'tsconfig.' + moduleResolution.toLowerCase() + '.json';
+  const compilerOptions = {
+    exactOptionalPropertyTypes: true,
+    lib: browser ? ['DOM', 'ES2022'] : ['ES2022'],
+    module,
+    moduleResolution,
+    noEmit: true,
+    skipLibCheck: false,
+    strict: true,
+    target: 'ES2022',
+    types: browser ? [] : ['node'],
+    typeRoots: [join(workspaceRoot, 'node_modules', '@types')],
+  };
 
-const packResult = parseNpmPackResult(runNpm(['pack', '--json']));
-const tarballPath = join(workspaceRoot, packResult.filename);
+  writeFileSync(join(cwd, config), JSON.stringify({ compilerOptions, files }));
+  execFileSync(process.execPath, [tscPath, '--project', config], {
+    cwd,
+    stdio: 'inherit',
+  });
+}
+
+const smokeRoot = mkdtempSync(
+  join(realpathSync(tmpdir()), 'dir-tree-install-smoke-')
+);
 
 try {
+  const pack = parseNpmPackResult(
+    runNpm(['pack', '--json', '--pack-destination', smokeRoot], workspaceRoot)
+  );
+  const tarball = join(smokeRoot, pack.filename);
   writeFileSync(
     join(smokeRoot, 'package.json'),
-    `${JSON.stringify({ name: 'dir-tree-install-smoke', private: true, type: 'module' }, null, 2)}\n`
+    JSON.stringify({ name: 'dir-tree-install-smoke', private: true })
   );
   runNpm(
     [
       'install',
-      tarballPath,
-      localFflatePath,
+      tarball,
       '--ignore-scripts',
       '--no-audit',
       '--no-fund',
       '--package-lock=false',
+      '--prefer-offline',
     ],
-    { cwd: smokeRoot, stdio: 'inherit' }
-  );
-  writeFileSync(
-    join(smokeRoot, 'esm-smoke.mjs'),
-    [
-      `import { FileSystemReader, InMemoryFileTreeAdapter, attachFileTreeMetadata, createFileTreeFromSnapshot, createReadOptionsFromConfig, formatSize, getFileTreeMetadata } from '@devmc12/dir-tree';`,
-      `import { RemoteRepositoryError, RemoteRepositoryFileSystemAdapter } from '@devmc12/dir-tree/adapters';`,
-      `import { createAnnotationDiffResult, createAnnotationProviderRequest, createAnnotatedAsciiTreeRenderOptionsFromConfig, createTreeAnnotationPatchesFromProviderResult, resolveTreeAnnotationsAfterRead } from '@devmc12/dir-tree/annotations';`,
-      `import { createAsciiTreeOptionsFromConfig, renderAsciiTree } from '@devmc12/dir-tree/ascii';`,
-      `import { isFileTreeSourceDrag } from '@devmc12/dir-tree/browser';`,
-      `import { NodeFileSystemAdapter } from '@devmc12/dir-tree/node';`,
-      `import { parseImportedTreeText } from '@devmc12/dir-tree/parser';`,
-      `import { createTreeSelectionModel } from '@devmc12/dir-tree/selection';`,
-      `import { createExportedFileTreeJson } from '@devmc12/dir-tree/transfer';`,
-      `import { createFileTreeNode } from '@devmc12/dir-tree/tree';`,
-      `const tree = await new FileSystemReader(new InMemoryFileTreeAdapter({ name: 'project', path: 'project', kind: 'directory', children: [] })).read();`,
-      `const snapshot = createFileTreeFromSnapshot({ name: 'snapshot', path: 'snapshot', kind: 'directory', children: [{ name: 'file.bin', path: 'snapshot/file.bin', kind: 'file', size: 2048 }] }, { readFileMeta: true });`,
-      `const metadata = attachFileTreeMetadata(snapshot);`,
-      `const readOptions = createReadOptionsFromConfig({ excludePatterns: 'dist\\nnode_modules', concurrencyEnabled: false });`,
-      `const asciiOptions = createAsciiTreeOptionsFromConfig({ showMetadata: true });`,
-      `const annotationRequest = createAnnotationProviderRequest({ tree });`,
-      `const annotationRenderOptions = createAnnotatedAsciiTreeRenderOptionsFromConfig({ commentPrefix: '#' });`,
-      `const providerPatches = createTreeAnnotationPatchesFromProviderResult({ annotations: [{ path: 'project', comment: 'Root' }] }, annotationRequest.sourcePaths);`,
-      `const selectionData = { rootId: 'root', items: { root: { id: 'root', children: ['root/src'] }, 'root/src': { id: 'root/src' } } };`,
-      `const selectionModel = createTreeSelectionModel(selectionData, ['root/src']);`,
-      `if (!renderAsciiTree(tree).includes('project')) throw new Error('render failed');`,
-      `if (formatSize(2048) !== '2.0 KB' || metadata.stats.totalFiles !== 1 || getFileTreeMetadata(snapshot)?.stats.totalSize !== 2048) throw new Error('metadata helpers failed');`,
-      `if (asciiOptions.showFileSize !== true || asciiOptions.showModifiedTime !== true) throw new Error('ascii options failed');`,
-      `if (parseImportedTreeText('project\\n└── src', 'project').tree.name !== 'project') throw new Error('parse failed');`,
-      `if (!createFileTreeNode(tree, 'project', { kind: 'file', name: 'README.md' })) throw new Error('tree edit failed');`,
-      `if (!createExportedFileTreeJson(tree).includes('project')) throw new Error('transfer failed');`,
-      `if (readOptions.exclude?.length !== 2 || readOptions.concurrency !== false) throw new Error('read options failed');`,
-      `if (annotationRequest.payload.nodes.length !== 1 || providerPatches.length !== 1) throw new Error('annotation provider failed');`,
-      `if (annotationRenderOptions.commentTemplate !== '# %comment%') throw new Error('annotation render options failed');`,
-      `if (Object.keys(resolveTreeAnnotationsAfterRead(tree, {}, 'matching-paths')).length !== 0) throw new Error('annotation retention failed');`,
-      `if (selectionModel.selectionStateById['root/src'] !== 'checked') throw new Error('selection failed');`,
-      `if (createAnnotationDiffResult({}, [], new Set()).added.length !== 0) throw new Error('annotation failed');`,
-      `if (isFileTreeSourceDrag(null)) throw new Error('browser helper failed');`,
-      `if (typeof NodeFileSystemAdapter !== 'function') throw new Error('node export failed');`,
-      `if (typeof RemoteRepositoryFileSystemAdapter !== 'function' || !(new RemoteRepositoryError({ code: 'unknown', message: 'x' }) instanceof Error)) throw new Error('adapter export failed');`,
-      '',
-    ].join('\n')
-  );
-  writeFileSync(
-    join(smokeRoot, 'cjs-smoke.cjs'),
-    [
-      `const { FileSystemReader, InMemoryFileTreeAdapter, attachFileTreeMetadata, createFileTreeFromSnapshot, createReadOptionsFromConfig, formatSize, getFileTreeMetadata } = require('@devmc12/dir-tree');`,
-      `const { RemoteRepositoryError, RemoteRepositoryFileSystemAdapter } = require('@devmc12/dir-tree/adapters');`,
-      `const { createAnnotationDiffResult, createAnnotationProviderRequest, createAnnotatedAsciiTreeRenderOptionsFromConfig, createTreeAnnotationPatchesFromProviderResult, resolveTreeAnnotationsAfterRead } = require('@devmc12/dir-tree/annotations');`,
-      `const { createAsciiTreeOptionsFromConfig, renderAsciiTree } = require('@devmc12/dir-tree/ascii');`,
-      `const { isFileTreeSourceDrag } = require('@devmc12/dir-tree/browser');`,
-      `const { NodeFileSystemAdapter } = require('@devmc12/dir-tree/node');`,
-      `const { parseImportedTreeText } = require('@devmc12/dir-tree/parser');`,
-      `const { createTreeSelectionModel } = require('@devmc12/dir-tree/selection');`,
-      `const { createExportedFileTreeJson } = require('@devmc12/dir-tree/transfer');`,
-      `const { createFileTreeNode } = require('@devmc12/dir-tree/tree');`,
-      `const tree = { name: 'project', path: 'project', kind: 'directory', children: [] };`,
-      `(async () => {`,
-      `  const result = await new FileSystemReader(new InMemoryFileTreeAdapter(tree)).read();`,
-      `  const snapshot = createFileTreeFromSnapshot({ name: 'snapshot', path: 'snapshot', kind: 'directory', children: [{ name: 'file.bin', path: 'snapshot/file.bin', kind: 'file', size: 2048 }] }, { readFileMeta: true });`,
-      `  const metadata = attachFileTreeMetadata(snapshot);`,
-      `  const readOptions = createReadOptionsFromConfig({ excludePatterns: 'dist\\nnode_modules', concurrencyEnabled: false });`,
-      `  const asciiOptions = createAsciiTreeOptionsFromConfig({ showMetadata: true });`,
-      `  const annotationRequest = createAnnotationProviderRequest({ tree: result });`,
-      `  const annotationRenderOptions = createAnnotatedAsciiTreeRenderOptionsFromConfig({ commentPrefix: '#' });`,
-      `  const providerPatches = createTreeAnnotationPatchesFromProviderResult({ annotations: [{ path: 'project', comment: 'Root' }] }, annotationRequest.sourcePaths);`,
-      `  const selectionData = { rootId: 'root', items: { root: { id: 'root', children: ['root/src'] }, 'root/src': { id: 'root/src' } } };`,
-      `  const selectionModel = createTreeSelectionModel(selectionData, ['root/src']);`,
-      `  if (!renderAsciiTree(result).includes('project')) throw new Error('render failed');`,
-      `  if (formatSize(2048) !== '2.0 KB' || metadata.stats.totalFiles !== 1 || getFileTreeMetadata(snapshot)?.stats.totalSize !== 2048) throw new Error('metadata helpers failed');`,
-      `  if (asciiOptions.showFileSize !== true || asciiOptions.showModifiedTime !== true) throw new Error('ascii options failed');`,
-      `  if (parseImportedTreeText('project\\n└── src', 'project').tree.name !== 'project') throw new Error('parse failed');`,
-      `  if (!createFileTreeNode(result, 'project', { kind: 'file', name: 'README.md' })) throw new Error('tree edit failed');`,
-      `  if (!createExportedFileTreeJson(result).includes('project')) throw new Error('transfer failed');`,
-      `  if (readOptions.exclude?.length !== 2 || readOptions.concurrency !== false) throw new Error('read options failed');`,
-      `  if (annotationRequest.payload.nodes.length !== 1 || providerPatches.length !== 1) throw new Error('annotation provider failed');`,
-      `  if (annotationRenderOptions.commentTemplate !== '# %comment%') throw new Error('annotation render options failed');`,
-      `  if (Object.keys(resolveTreeAnnotationsAfterRead(result, {}, 'matching-paths')).length !== 0) throw new Error('annotation retention failed');`,
-      `  if (selectionModel.selectionStateById['root/src'] !== 'checked') throw new Error('selection failed');`,
-      `  if (createAnnotationDiffResult({}, [], new Set()).added.length !== 0) throw new Error('annotation failed');`,
-      `  if (isFileTreeSourceDrag(null)) throw new Error('browser helper failed');`,
-      `  if (typeof NodeFileSystemAdapter !== 'function') throw new Error('node export failed');`,
-      `  if (typeof RemoteRepositoryFileSystemAdapter !== 'function' || !(new RemoteRepositoryError({ code: 'unknown', message: 'x' }) instanceof Error)) throw new Error('adapter export failed');`,
-      `})();`,
-      '',
-    ].join('\n')
-  );
-  writeFileSync(
-    join(smokeRoot, 'types-smoke.ts'),
-    `import { FileSystemReader, InMemoryFileTreeAdapter, attachFileTreeMetadata, createFileTreeFromSnapshot, createReadOptionsFromConfig, formatSize, getFileTreeMetadata, type FileNode, type ReadOptionsConfig } from '@devmc12/dir-tree';\nimport { RemoteRepositoryError, RemoteRepositoryFileSystemAdapter } from '@devmc12/dir-tree/adapters';\nimport { createAsciiTreeOptionsFromConfig, renderAsciiTreeLines, type AsciiTreeOptionsConfig } from '@devmc12/dir-tree/ascii';\nimport { createAnnotationDiffResult, createAnnotationProviderRequest, createAnnotatedAsciiTreeRenderOptionsFromConfig, createTreeAnnotationPatchesFromProviderResult, resolveTreeAnnotationsAfterRead, type AnnotatedAsciiTreeRenderOptionsConfig, type AnnotationProviderRequest, type AnnotationProviderResult, type TreeAnnotationMap, type TreeAnnotationRetentionMode } from '@devmc12/dir-tree/annotations';\nimport { NodeFileSystemAdapter } from '@devmc12/dir-tree/node';\nimport { parseImportedTreeText } from '@devmc12/dir-tree/parser';\nimport { createTreeSelectionModel } from '@devmc12/dir-tree/selection';\nimport { createExportedFileTreeJson } from '@devmc12/dir-tree/transfer';\nimport { createFileTreeNode } from '@devmc12/dir-tree/tree';\nconst tree: FileNode = { name: 'project', path: 'project', kind: 'directory', children: [] };\nconst annotations: TreeAnnotationMap = {};\nconst retentionMode: TreeAnnotationRetentionMode = 'matching-paths';\nconst reader = new FileSystemReader(new InMemoryFileTreeAdapter(tree));\nconst parsed = parseImportedTreeText('project\\n└── src', 'project');\nconst created = createFileTreeNode(parsed.tree, parsed.tree.path, { kind: 'file', name: 'README.md' });\nconst snapshot = createFileTreeFromSnapshot({ name: 'snapshot', path: 'snapshot', kind: 'directory', children: [{ name: 'file.bin', path: 'snapshot/file.bin', kind: 'file', size: 2048 }] }, { readFileMeta: true });\nconst metadata = attachFileTreeMetadata(snapshot);\nconst readOptionConfig: ReadOptionsConfig = { excludePatterns: 'dist\\nnode_modules', concurrencyEnabled: false };\nconst asciiOptionConfig: AsciiTreeOptionsConfig = { showMetadata: true };\nconst annotatedAsciiConfig: AnnotatedAsciiTreeRenderOptionsConfig = { commentPrefix: '#' };\nconst annotationProviderResult: AnnotationProviderResult = { annotations: [{ path: 'project', comment: 'Root' }] };\nnew RemoteRepositoryFileSystemAdapter({ repositoryUrl: 'https://github.com/acme/project' });\nnew RemoteRepositoryError({ code: 'unknown', message: 'x' });\nnew NodeFileSystemAdapter('.');\ncreateAnnotationDiffResult(annotations, [], new Set([tree.path]));\ncreateExportedFileTreeJson(tree, annotations);\ncreateTreeSelectionModel({ rootId: 'root', items: { root: { id: 'root' } } }, []);\ncreateReadOptionsFromConfig(readOptionConfig);\ncreateAsciiTreeOptionsFromConfig(asciiOptionConfig);\ncreateAnnotatedAsciiTreeRenderOptionsFromConfig(annotatedAsciiConfig);\nconst annotationProviderRequest: AnnotationProviderRequest = createAnnotationProviderRequest({ tree });\ncreateTreeAnnotationPatchesFromProviderResult(annotationProviderResult, annotationProviderRequest.sourcePaths);\nresolveTreeAnnotationsAfterRead(tree, annotations, retentionMode);\nformatSize(metadata.stats.totalSize);\ngetFileTreeMetadata(snapshot);\nrenderAsciiTreeLines(await reader.read());\nif (!created) throw new Error('create failed');\n`
+    smokeRoot,
+    'inherit'
   );
 
-  writeFileSync(
-    join(smokeRoot, 'browser-types-smoke.ts'),
-    [
-      "import { DroppedDirectoryEntryAdapter, LegacyDirectoryFilesAdapter, LocalFileSystemAdapter, isDirectoryPickerSupported, type DroppedFileTreeSource, type DroppedFileSystemDirectoryEntry } from '@devmc12/dir-tree/browser';",
-      "import { FileSystemReader, type FileNode } from '@devmc12/dir-tree';",
-      'declare const source: DroppedFileTreeSource;',
-      'declare const entry: DroppedFileSystemDirectoryEntry;',
-      'declare const files: FileList;',
-      "const reader = new FileSystemReader(source.kind === 'directory' && source.handle ? new LocalFileSystemAdapter({}, source.handle) : new DroppedDirectoryEntryAdapter(entry));",
-      'const tree: FileNode = await reader.read();',
-      'new LegacyDirectoryFilesAdapter(files);',
-      'void tree;',
-      'isDirectoryPickerSupported();',
-      '',
-    ].join('\n')
-  );
+  for (const file of [...runtimeFixtures, ...nodeFixtures, browserFixture]) {
+    copyFileSync(
+      new URL('./fixtures/' + file, import.meta.url),
+      join(smokeRoot, file)
+    );
+  }
 
-  const typeScriptCompilerOptions = {
-    exactOptionalPropertyTypes: true,
-    lib: ['ES2022'],
-    types: ['node'],
-    skipLibCheck: false,
-    noEmit: true,
-    strict: true,
-    target: 'ES2022',
-  };
-
-  writeFileSync(
-    join(smokeRoot, 'tsconfig.nodenext.json'),
-    `${JSON.stringify(
-      {
-        compilerOptions: {
-          ...typeScriptCompilerOptions,
-          module: 'NodeNext',
-          moduleResolution: 'NodeNext',
-        },
-        include: ['types-smoke.ts'],
-      },
-      null,
-      2
-    )}\n`
-  );
-  writeFileSync(
-    join(smokeRoot, 'tsconfig.node16.json'),
-    `${JSON.stringify(
-      {
-        compilerOptions: {
-          ...typeScriptCompilerOptions,
-          module: 'Node16',
-          moduleResolution: 'Node16',
-        },
-        include: ['types-smoke.ts'],
-      },
-      null,
-      2
-    )}\n`
-  );
-  writeFileSync(
-    join(smokeRoot, 'tsconfig.browser.json'),
-    JSON.stringify({
-      compilerOptions: {
-        ...typeScriptCompilerOptions,
-        lib: ['DOM', 'ES2022'],
-        types: [],
-        module: 'ESNext',
-        moduleResolution: 'Bundler',
-      },
-      include: ['browser-types-smoke.ts'],
-    })
-  );
-  execFileSync(process.execPath, ['esm-smoke.mjs'], {
-    cwd: smokeRoot,
-    stdio: 'inherit',
-  });
-  execFileSync(process.execPath, ['cjs-smoke.cjs'], {
-    cwd: smokeRoot,
-    stdio: 'inherit',
-  });
-  copyFileSync(
-    new URL('./fixtures/cross-entry-smoke.mjs', import.meta.url),
-    join(smokeRoot, 'cross-entry-smoke.mjs')
-  );
-  execFileSync(process.execPath, ['cross-entry-smoke.mjs'], {
-    cwd: smokeRoot,
-    stdio: 'inherit',
-  });
-  execFileSync(
-    process.execPath,
-    [tscPath, '--project', 'tsconfig.nodenext.json'],
-    {
-      cwd: smokeRoot,
-      stdio: 'inherit',
-    }
-  );
-  execFileSync(
-    process.execPath,
-    [tscPath, '--project', 'tsconfig.node16.json'],
-    {
-      cwd: smokeRoot,
-      stdio: 'inherit',
-    }
-  );
-  execFileSync(
-    process.execPath,
-    [tscPath, '--project', 'tsconfig.browser.json'],
-    {
-      cwd: smokeRoot,
-      stdio: 'inherit',
-    }
-  );
+  const version = execFileSync(consumerNode, ['--version'], {
+    encoding: 'utf8',
+  }).trim();
+  for (const file of runtimeFixtures) {
+    execFileSync(consumerNode, [file], { cwd: smokeRoot, stdio: 'inherit' });
+  }
   console.log(
-    'Verified installed package imports and TypeScript consumer types'
+    'Verified installed package runtime on ' + process.platform + ' ' + version
+  );
+
+  checkTypes(smokeRoot, 'Node16', 'Node16', nodeFixtures);
+  checkTypes(smokeRoot, 'NodeNext', 'NodeNext', nodeFixtures);
+  checkTypes(smokeRoot, 'ESNext', 'Bundler', [browserFixture], true);
+  console.log(
+    'Verified strict Node and browser declarations from the installed package'
   );
 } finally {
-  rmSync(tarballPath, { force: true });
-  rmSync(smokeParentRoot, { force: true, recursive: true });
+  rmSync(smokeRoot, { force: true, recursive: true });
 }

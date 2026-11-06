@@ -41,7 +41,7 @@ npm install @devmc12/dir-tree
 
 环境要求：
 
-- Node.js `>=18.18`
+- 安装后的库支持 Node.js `>=18.18.1`；仓库开发和测试使用 Node.js 22
 - TypeScript 用户可直接从包中导入类型
 - 核心与大部分适配器是同构的。Node.js 文件系统读取从 `@devmc12/dir-tree/node` 导出，浏览器专用 API 从 `@devmc12/dir-tree/browser` 导出
 

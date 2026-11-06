@@ -4,7 +4,7 @@ Thank you for helping improve Dir Tree.
 
 ## Development
 
-Install dependencies, then run the core checks:
+Use Node.js 22 for repository development and tests. The installed package supports Node.js 18.18.1 and newer. Install dependencies, then run the core checks:
 
 ```bash
 npm install
@@ -13,6 +13,8 @@ npm run test
 npm run build
 npm run pack:dry
 ```
+
+Run `npm run smoke:install` after building to check a temporary npm installation. Set `DIR_TREE_CONSUMER_NODE` to an absolute Node.js 18.18.1 executable path to run those runtime checks at the minimum version while compiling the consumer types with the development version. See [Reader benchmarks](docs/benchmarks.md) for the fixed performance fixtures.
 
 ## Code standards
 
