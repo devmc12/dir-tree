@@ -4,6 +4,8 @@ import {
   parseImportedFileTreeJson,
 } from '../src/transfer';
 import { renderAsciiTree, renderAsciiTreeLines } from '../src/ascii';
+import { createFileTreeNode, renameFileTreeNode } from '../src/tree';
+import { InMemoryFileTreeAdapter } from '../src/adapters';
 import { renderAnnotatedAsciiTree } from '../src/annotations';
 import {
   parseImportedMarkdownDocumentTreeText,
@@ -70,6 +72,43 @@ const unicodeRoundTripTree = {
 };
 
 describe('parser utilities', () => {
+  it.each(['.', '..', 'a\0b', 'a/b', '   '])(
+    'rejects invalid edited names before export: %j',
+    name => {
+      expect(
+        createFileTreeNode(unicodeRoundTripTree, 'project', {
+          name,
+          kind: 'file',
+        })
+      ).toBeNull();
+      expect(
+        renameFileTreeNode(unicodeRoundTripTree, 'project', name)
+      ).toBeNull();
+    }
+  );
+
+  it('round-trips a read, create, rename, and JSON export with platform-neutral names', async () => {
+    const source = await new InMemoryFileTreeAdapter(
+      unicodeRoundTripTree
+    ).read();
+    const created = createFileTreeNode(source, 'project', {
+      name: 'notes:中文.txt',
+      kind: 'file',
+    })!;
+    const renamed = renameFileTreeNode(
+      created.tree,
+      created.path,
+      'notes?.txt'
+    )!;
+    const restored = parseImportedFileTreeJson(
+      createExportedFileTreeJson(renamed.tree)
+    );
+    expect(restored.tree).toEqual(renamed.tree);
+    expect(source.children?.some(node => node.name === 'notes?.txt')).toBe(
+      false
+    );
+  });
+
   it('imports a displayed dot root without allowing dot child names', () => {
     const parsed = parseImportedTreeText(
       '.\n├── src/\n└── package.json',

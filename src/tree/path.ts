@@ -4,6 +4,19 @@
  */
 
 /**
+ * Checks a logical path segment without imposing platform-specific filename rules
+ */
+export function isValidFileNodeName(name: string): boolean {
+  return (
+    name.trim().length > 0 &&
+    name !== '.' &&
+    name !== '..' &&
+    !name.includes('/') &&
+    !name.includes('\0')
+  );
+}
+
+/**
  * Returns the parent path of a tree path
  * @param path Tree path to inspect
  * @returns Parent path, or an empty string for top-level paths

@@ -1,6 +1,10 @@
 import type { FileNode } from '../reader/types';
 import { cloneFileNode, findFileNodeLocation } from './traversal';
-import { filterNestedFileTreePaths, buildFileTreeChildPath } from './path';
+import {
+  filterNestedFileTreePaths,
+  buildFileTreeChildPath,
+  isValidFileNodeName,
+} from './path';
 import type {
   FileTreeCreateOptions,
   FileTreeCreateResult,
@@ -285,15 +289,6 @@ function updateFileNodePath(node: FileNode, nextPath: string): void {
   node.children?.forEach(child => {
     updateFileNodePath(child, buildFileTreeChildPath(nextPath, child.name));
   });
-}
-
-/**
- * Checks whether a node name is non-empty and single-segment
- * @param name Candidate node name
- * @returns True when the name can be used in a tree path
- */
-function isValidFileNodeName(name: string): boolean {
-  return name.length > 0 && !name.includes('/');
 }
 
 /**

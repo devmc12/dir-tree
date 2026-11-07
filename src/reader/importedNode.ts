@@ -1,6 +1,6 @@
 import type { FileNode } from './types';
 import { FileTreeError } from './errors';
-import { buildFileTreeChildPath } from '../tree/path';
+import { buildFileTreeChildPath, isValidFileNodeName } from '../tree/path';
 
 /**
  * Date: 2026-11-07
@@ -28,13 +28,7 @@ export function createImportedTreeNode(
   const location = { path, ...(line === undefined ? {} : { line }) };
 
   // Path segments are structural; platform-specific filename rules stay with each format
-  if (
-    !name.trim() ||
-    name === '.' ||
-    name === '..' ||
-    name.includes('/') ||
-    name.includes('\0')
-  ) {
+  if (!isValidFileNodeName(name)) {
     throw new FileTreeError(
       'invalid_tree',
       'An imported node must have a single valid path segment',
