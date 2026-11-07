@@ -2,6 +2,8 @@
 
 Use this checklist before publishing `@devmc12/dir-tree` to npm.
 
+The current 2.0 work is unreleased; package metadata remains at 1.0.5. Keep library checks separate from the pending playground and Web migrations. Local migration can use a candidate tarball before publication. Once the integrations are verified and release is requested, choose the version, update the changelog and temporary migration notices, and run the release workflow. CI completion is not required between every local implementation step.
+
 The root package is the only published artifact. `playground/`, `docs/`, `src/`, `test/`, local scripts, and Vite React UI source must stay in the GitHub repository but out of the npm tarball.
 
 Publishing is automated by `.github/workflows/release.yml`. Create and publish a GitHub Release whose tag matches `package.json#version`; the workflow checks, builds, packs, and publishes to npm through Trusted Publishing.
@@ -31,7 +33,8 @@ Current publishable files should be limited to:
 
 Before a release, update the relevant docs:
 
-- `README.md` for user-facing examples
+- `README.md` and `README.zh.md` for user-facing examples
+- `docs/migrate-v2.md` for breaking changes and integration status
 - `docs/api.md` for public API changes
 - `docs/adapters.md` for source adapter changes
 - `docs/annotations.md` for annotation workflow changes
@@ -50,7 +53,7 @@ npm run release
 
 The script accepts a stable version such as `1.0.3` or `v1.0.3`. It does not accept prerelease or build metadata versions.
 
-The release order is intentionally fixed:
+The existing release script performs these steps (this is not an ordering requirement for local feature work or application migrations):
 
 1. Verify Git, npm, package versions, tags, and `CHANGELOG.md`
 2. Update `package.json`, `package-lock.json`, and `CHANGELOG.md`

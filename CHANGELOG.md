@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Accept displayed dot roots in tree text and share structural name validation between editing and importing
+- Skip legacy directory ignore files outside the current read scope, loading parent rules first
+- Preserve special path keys across metadata, annotations, visibility, selection, and JSON transfer
+- Reuse the metadata index builder and verify ZIP record parsing with Python and .NET archive fixtures
+
 - Isolate read overrides and ignore rules per call, and let an explicit empty exclude list clear constructor defaults
 - Move browser directory adapters and dropped-entry types to the `/browser` entry
 - Keep file nodes structural and remove `FileNode.handle` and `stripFileNodeHandles`; adapters retain their sources for repeated reads

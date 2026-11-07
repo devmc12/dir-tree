@@ -54,6 +54,8 @@ interface FileNode {
 
 `cloneFileNode` copies the declared data fields and recursively copies child nodes. It omits attached lookup metadata and unknown properties. `createPreparedFileTree` makes the same copy and builds a fresh index for the copy. `attachFileTreeMetadata` mutates the given root by adding a non-enumerable index. Treat the index from `getFileTreeMetadata` as a view of that tree; rebuild it after mutating that tree in place. The index is readable across the package's entry points and is not serialized in JSON.
 
+Path and selection dictionaries may have a null prototype so names such as `__proto__` remain ordinary keys. Use `Object.keys`, `Object.entries`, or `Object.prototype.hasOwnProperty.call(map, path)` rather than calling a method on the map. Caller-supplied plain objects are accepted; inherited entries are not treated as data.
+
 ### `ReadOptions`
 
 ```ts
@@ -72,7 +74,7 @@ interface ReadOptions {
 
 Built-in adapters snapshot their constructor defaults. `read(options)` takes a fresh set of overrides for that call; missing or undefined values inherit the constructor defaults. An override replaces the whole exclude array, sort object, or concurrency option. Repeated or concurrent reads use separate filtering state. `FileSystemReader` forwards the call to its active adapter; custom adapters define their own behavior.
 
-The root is at depth `0`; `depth: 0` returns only the root, and omitting depth leaves it unbounded. By default, hidden entries are excluded, applicable `.gitignore` rules are used, optional file metadata is omitted, and children sort by name ascending with directories first. Type sorting uses extension and then modification time; `foldersFirst` applies in either sort order.
+The root is at depth `0`; `depth: 0` returns only the root, and omitting depth leaves it unbounded. By default, hidden entries are excluded, optional file metadata is omitted, and children sort by name ascending with directories first. Adapters with access to rule contents apply applicable `.gitignore` files; remote repositories and in-memory snapshots do not. See the [source capability table](adapters.md#read-options). Type sorting uses extension and then modification time; `foldersFirst` applies in either sort order.
 
 Use `createReadOptionsFromConfig` for UI, CLI, or persisted settings. An empty exclude array or blank exclude text clears the default exclusions. If both fields are present, the array wins, including an empty array.
 
@@ -97,6 +99,20 @@ Common root helpers:
 ### Errors And Warnings
 
 `FileTreeError` exposes a stable `code`, an optional tree-relative `path`, and a one-based `line` when the parser knows it. An underlying failure may be available as `cause`. Use the code for handling errors across package entry points.
+
+Separately bundled entries can contain different error class instances. Narrow an unknown caught error structurally instead of relying on `instanceof FileTreeError` across entries:
+
+```ts
+function readFailureCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  if ('name' in error && error.name === 'AbortError') return 'cancelled';
+  return 'code' in error && typeof error.code === 'string'
+    ? error.code
+    : undefined;
+}
+```
+
+Use the returned code in the application's existing error-message mapping. Unknown errors should still be reported or rethrown; returning no code does not mean the operation succeeded.
 
 | Code | Meaning |
 | --- | --- |
@@ -182,6 +198,8 @@ Supported formats:
 
 ## ASCII Rendering
 
+A leading `.` in imported tree text is a display marker and uses the supplied fallback root name. Dot-mode rendered output includes a synthetic outer root; importing it preserves that displayed layer. Ordinary child names `.` and `..` remain invalid. These text formats use filename heuristics; use JSON transfer when exact node kinds, metadata, annotations, and visibility must be retained.
+
 ```ts
 import {
   createAsciiTreeOptionsFromConfig,
@@ -228,12 +246,14 @@ Common helpers:
 
 - `createPreparedFileTree(root)` clones a tree and attaches metadata
 - `createVisibleFileTree(root, visibility)` removes or collapses hidden nodes
-- `createFocusedFileTree(root, focusedPaths)` keeps selected paths and ancestors
-- `createFileTreeNode(root, parentPath, options)` creates a file or directory
+- `createFocusedFileTree(root, focusedRootPath)` clones one directory subtree with an index, or returns `null` for a missing/file target
+- `createFileTreeNode(root, targetPath, options)` creates inside a directory target or next to a file target
 - `renameFileTreeNode(root, targetPath, nextName)` renames a node and remaps paths
 - `moveFileTreeNode(root, dragPath, target)` moves a node and remaps paths
 - `removeFileTreeNode(root, targetPath)` removes one node
 - `removeFileTreeNodes(root, paths)` removes multiple nodes
+
+Creation and renaming trim the requested name and reject empty names, `.`, `..`, `/`, and NUL. They share the importer's structural validation without imposing Windows filename restrictions. Invalid edits return `null`; invalid imports throw `FileTreeError`. General text parsers retain their existing name normalization; dedicated JSON transfer retains valid platform-neutral names.
 
 ## Transfer
 

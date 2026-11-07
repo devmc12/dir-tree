@@ -1,5 +1,7 @@
 # Playground
 
+The browser and Node playground migrations to the unreleased 2.0 API are still pending. The commands below describe the examples' workflow, not a claim that the current examples pass against the modified library. Migrate browser imports and removed node-handle helpers separately, then verify both source development and the packed library without aliases. See [Migrating to 2.0](migrate-v2.md).
+
 `playground/` is the repository's Vite React reference implementation for the headless `dir-tree` package.
 
 It is not published to npm and is not a separate React package. It exists to show a complete browser Reader workflow, validate real source/read/render flows, and keep UI code outside the headless package.

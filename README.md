@@ -35,6 +35,8 @@
 
 ## Install
 
+This checkout documents the **unreleased 2.0 API**; package metadata still identifies 1.0.5. Do not assume the published npm package includes these changes. Read the [migration guide](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md) before upgrading.
+
 ```bash
 npm install @devmc12/dir-tree
 ```
@@ -46,6 +48,10 @@ Requirements:
 - The core and most adapters are isomorphic. Node.js filesystem reading is exposed from `@devmc12/dir-tree/node`, and browser-only APIs are exposed from `@devmc12/dir-tree/browser`
 
 ## Quick Start
+
+Constructor options are defaults; `read(options)` overrides only that call. Temporary settings do not persist, and `exclude: []` explicitly clears default exclusions. Nodes contain structure and metadata only; keep the adapter for refreshes instead of recovering source handles from the displayed tree.
+
+Call `adapter.read()` directly for a fixed source. `FileSystemReader` is an optional wrapper for holding or switching adapters. See the [source capability table](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md#read-options) for metadata, rule reading, and refresh differences; remote repositories and in-memory trees do not read `.gitignore` contents.
 
 ```ts
 import { FileSystemReader, InMemoryFileTreeAdapter } from '@devmc12/dir-tree';
@@ -308,6 +314,8 @@ Public entry points are listed in `package.json#exports`. Common reader APIs are
 
 ## Playground
 
+The two playground migrations to 2.0 are pending. The commands below remain workflow references for after migration; passing library checks does not validate the examples.
+
 The GitHub repository includes `playground/`, a small Vite React example that demonstrates the public `@devmc12/dir-tree` imports through local Vite and TypeScript aliases. It is a minimal reference, not a full app. For the complete application, see [dir-tree.com](https://dir-tree.com/).
 
 ```bash
@@ -323,6 +331,7 @@ npm run start:playground-node
 
 ## Documentation
 
+- [Architecture and data flow](https://github.com/devmc12/dir-tree/blob/main/docs/architecture.md)
 - [API reference](https://github.com/devmc12/dir-tree/blob/main/docs/api.md)
 - [Migrating from 1.x to 2.0](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)
 - [Adapters](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md)
@@ -340,8 +349,8 @@ npm run build
 npm run smoke:exports
 npm run smoke:install
 npm run pack:verify
-npm --prefix playground run typecheck
-npm run build:playground
 ```
 
 `npm run smoke:install` packs the local package, installs the tarball into a temporary consumer project, and verifies ESM, CommonJS, and TypeScript consumer imports.
+
+After migrating the examples separately, run the browser playground typecheck/build and Node example checks; see the [Playground guide](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md).

@@ -46,7 +46,7 @@ src
 └── tree             Pure tree editing, visibility, expansion, path, and stats utilities
 ```
 
-Each top-level folder maps to a package subpath export defined in `package.json#exports` (for example `@devmc12/dir-tree/tree`, `@devmc12/dir-tree/annotations`).
+Public subpaths are defined in `package.json#exports` (for example `@devmc12/dir-tree/tree`, `@devmc12/dir-tree/annotations`). The `reader` folder is internal; its public APIs are exported from the package root.
 
 Rules:
 
@@ -54,6 +54,8 @@ Rules:
 - Place new code in the module that matches its concern, next to its siblings. For example, remote repository helpers go under `src/adapters/remoteRepository` and are surfaced through `@devmc12/dir-tree/adapters`
 - When a new public export is added, update `package.json#exports` only if a new subpath is introduced, keep `scripts/smoke-exports.mjs` representative, and add a `CHANGELOG.md` entry
 - Keep `src`, `test`, `scripts`, `playground`, and `docs` out of the npm tarball. `scripts/verify-pack-boundary.mjs` enforces this boundary
+- Keep read state local to each invocation; constructor options are defaults and per-call overrides must not leak into later reads
+- Reuse the structural name validator for edits and imports, and use safe own-property access for maps keyed by user-provided paths
 
 <!-- END:structure-rules -->
 
@@ -110,3 +112,11 @@ npm run pack:verify
 `npm run build` must succeed because `smoke:exports`, `smoke:install`, and `pack:verify` operate on the `dist` output.
 
 <!-- END:verification-rules -->
+
+# Commit Workflow
+
+- When the user requests code changes, implement and verify them, then create a local commit automatically without waiting for another request to commit
+- If the user requests a correction or addition to the same just-completed task, and no independent work has started in between, update the previous commit with `git commit --amend --no-edit`
+- Create a new commit for a new feature or independent change; do not amend it into an unrelated task
+- Keep unrelated work separate and respect explicit user instructions about commit boundaries, excluded projects, and whether to commit
+- A local commit does not authorize pushing, tagging, deploying, or publishing

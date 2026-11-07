@@ -35,6 +35,8 @@
 
 ## 安装
 
+当前工作区说明的是**尚未发布的 2.0 API**；包版本暂时仍为 1.0.5。npm 已发布包不应被视为包含这些改动。升级前请阅读[迁移说明](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)。
+
 ```bash
 npm install @devmc12/dir-tree
 ```
@@ -46,6 +48,10 @@ npm install @devmc12/dir-tree
 - 核心与大部分适配器是同构的。Node.js 文件系统读取从 `@devmc12/dir-tree/node` 导出，浏览器专用 API 从 `@devmc12/dir-tree/browser` 导出
 
 ## 快速开始
+
+构造选项是默认值；每次 `read(options)` 只覆盖本次读取，不继承上一次的临时设置。`exclude: []` 明确清空默认排除项。节点只保存结构与元数据；复用适配器刷新，不从显示树恢复文件句柄。
+
+固定数据源可以直接调用 `adapter.read()`；`FileSystemReader` 是用于持有、切换适配器的可选包装。不同来源支持的元数据、规则读取和刷新方式见[能力对照表](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md#read-options)；远程仓库和内存树不会读取 `.gitignore` 内容。
 
 ```ts
 import { FileSystemReader, InMemoryFileTreeAdapter } from '@devmc12/dir-tree';
@@ -341,6 +347,8 @@ dir-tree/src
 
 ## Playground
 
+两个 playground 的 2.0 迁移尚未完成，以下命令保留作为迁移后的操作参考；库检查通过不代表示例已通过集成验收。
+
 GitHub 仓库包含 `playground/`，是一个简单的 Vite React 示例，通过本地 Vite 与 TypeScript 别名演示公开的 `dir-tree` 导入。它只是一个最小参考实现，并不完整。完整的应用请见 [dir-tree.com](https://dir-tree.com/)。
 
 ```bash
@@ -356,6 +364,7 @@ npm run start:playground-node
 
 ## 文档
 
+- [架构与数据流](https://github.com/devmc12/dir-tree/blob/main/docs/architecture.md)
 - [API 参考](https://github.com/devmc12/dir-tree/blob/main/docs/api.md)
 - [从 1.x 迁移到 2.0](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)
 - [适配器](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md)
@@ -373,8 +382,8 @@ npm run build
 npm run smoke:exports
 npm run smoke:install
 npm run pack:verify
-npm --prefix playground run typecheck
-npm run build:playground
 ```
 
 `npm run smoke:install` 会打包本地包，将 tarball 安装到一个临时的消费者项目中，并验证 ESM、CommonJS 与 TypeScript 消费者导入。
+
+两个 playground 独立迁移完成后，再运行浏览器示例类型检查、构建和 Node 示例验收；见 [Playground 文档](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md)。

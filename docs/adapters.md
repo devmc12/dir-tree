@@ -43,7 +43,23 @@ interface ReadOptions {
 
 Constructor options are defaults. Pass the current options to each read that needs them; a previous call's overrides do not persist. An explicit `exclude: []` clears the default exclude list.
 
-For built-in filesystem traversal, omitted or `false` concurrency runs I/O sequentially, `true` uses a limit of 20, and `{ limit }` accepts a finite positive integer. The bound covers directory listing, rule reads, and file metadata across all folders in that read. Independent reads have separate limits. It does not control requests within an injected remote repository client.
+You can call `adapter.read()` directly. `FileSystemReader` is an optional delegating wrapper when an application wants to hold or switch the active adapter.
+
+All built-in adapters support depth, hidden entries, excludes, and sorting. Source-specific capabilities differ:
+
+| Source | `useGitignore` | `readFileMeta` | Repeated reads |
+| --- | --- | --- | --- |
+| Node filesystem | Reads applicable rule files | Size and modification time; failures can warn | Reads the current filesystem |
+| Native browser directory | Reads applicable rule files | Size, modification time, MIME when available; failures can warn | Reuses the handle and reads current entries |
+| Dropped directory entry | Reads applicable rule files | Size, modification time, MIME when available; failures can warn | Reuses the entry and enumerates it again |
+| Legacy file list | Reads applicable selected rule files | Copies available `File` metadata | Reuses the selected files; select again to discover new files |
+| ZIP | Extracts applicable rule files only | Uncompressed size from the index | Immutable `Blob` reuses the index; mutable bytes are reindexed |
+| Remote repository | Not applied; rule contents are not fetched | Size when supplied by the provider | Calls the repository API again |
+| In-memory tree | Not applied; file contents are unavailable | Copies supplied node metadata | Clones the constructor snapshot |
+
+An applicable rule file is one whose containing directory is reachable under the current depth, hidden, exclude, and parent ignore settings. Its own hidden filename does not prevent loading it. An unreadable applicable rule rejects the read; unreachable rule files are not read. Glob excludes are tested against logical paths including the root: use `node_modules` to match that name at any level, or `project/src` to anchor a path under a specific root.
+
+For built-in filesystem traversal, omitted or `false` concurrency runs I/O sequentially, `true` uses a limit of 20, and `{ limit }` accepts a finite positive integer. The bound covers directory listing, rule reads, and file metadata across all folders in that read. Independent reads have separate limits. Legacy rule files load in parent-first order. ZIP and in-memory processing are not parallelized by this setting, and it does not control built-in or injected remote repository requests.
 
 `mode` is the native directory picker's requested access mode. The first concurrent call that opens the picker sets it; future reads reuse the handle. `token` belongs to remote repository adapter options. To inspect optional file metadata failures in the Node, native browser, or dropped-directory adapter, pass `onWarning`; throwing from that callback rejects the read.
 

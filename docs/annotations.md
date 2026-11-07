@@ -30,6 +30,8 @@ interface TreeAnnotationPatch {
 
 Patches are intentionally small. They represent a requested comment change for one path. The patch utilities fill default `source`, `syncStatus`, and `updatedAt` values when applying patches.
 
+Batch patches run in input order with at most one map copy. A blank comment removes an entry; later patches for the same path see earlier changes. An empty batch, or deletion of an absent entry, can return the original map. `updatedAt` is in milliseconds since the Unix epoch. Maps may have a null prototype; enumerate them with `Object.keys`/`Object.entries`, including when a root is named `__proto__`.
+
 ## Provider Boundary
 
 Use `AnnotationProvider` as an application boundary. The provider receives a plain payload and returns patches. It can call OpenAI, Ollama, an internal API, a local rules engine, or a mock implementation.
