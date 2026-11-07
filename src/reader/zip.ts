@@ -242,6 +242,134 @@ function getDataOffset(
 }
 
 /**
+ * Reads one bounded central record and resolves its local payload range
+ */
+function readCentralDirectoryEntry(
+  bytes: Uint8Array,
+  view: DataView,
+  position: number,
+  directoryOffset: number,
+  end: number
+): {
+  entry: ZipEntry;
+  contentKey: string;
+  localOffset: number;
+  nextPosition: number;
+} {
+  const nameOffset = position + CENTRAL_HEADER.size;
+
+  if (
+    nameOffset > end ||
+    view.getUint32(position, true) !== CENTRAL_HEADER.signature
+  ) {
+    throw new FileTreeError(
+      'invalid_zip',
+      'Invalid ZIP central directory entry'
+    );
+  }
+
+  const flags = view.getUint16(position + 8, true);
+  const compression = view.getUint16(position + 10, true);
+  const checksum = view.getUint32(position + 16, true);
+  const compressedSize = view.getUint32(position + 20, true);
+  const size = view.getUint32(position + 24, true);
+  const extraOffset = nameOffset + view.getUint16(position + 28, true);
+  const extraEnd = extraOffset + view.getUint16(position + 30, true);
+  const nextPosition = extraEnd + view.getUint16(position + 32, true);
+  const disk = view.getUint16(position + 34, true);
+  const attributes = view.getUint32(position + 38, true);
+  const localOffset = view.getUint32(position + 42, true);
+
+  if (nextPosition > end || disk !== 0) {
+    throw new FileTreeError(
+      'invalid_zip',
+      'ZIP central directory entry exceeds its bounds or spans disks'
+    );
+  }
+
+  if (
+    localOffset === 0xffffffff ||
+    size === 0xffffffff ||
+    compressedSize === 0xffffffff
+  ) {
+    throw new FileTreeError('invalid_zip', 'ZIP64 entries are not supported');
+  }
+
+  if (
+    (flags & ENCRYPTION_FLAGS) !== 0 ||
+    (compression !== 0 && compression !== 8)
+  ) {
+    throw new FileTreeError(
+      'invalid_zip',
+      'ZIP entry uses encryption or an unsupported compression method'
+    );
+  }
+
+  if (
+    (compression === 0 && compressedSize !== size) ||
+    (compression === 8 && compressedSize < 2)
+  ) {
+    throw new FileTreeError(
+      'invalid_zip',
+      'ZIP entry has inconsistent byte sizes'
+    );
+  }
+
+  const nameBytes = bytes.subarray(nameOffset, extraOffset);
+  const isUtf8 = (flags & 0x0800) !== 0;
+  const name = decodeFilename(
+    nameBytes,
+    isUtf8,
+    bytes.subarray(extraOffset, extraEnd)
+  );
+  const path = name.replace(/\/$/u, '');
+  const isDir =
+    name.endsWith('/') ||
+    ((attributes >>> 16) & 0xf000) === 0x4000 ||
+    (attributes & 0x10) !== 0;
+  // Keep the original decoder key unambiguous even when an extra field changes the display path
+  const contentKey = strFromU8(nameBytes, !isUtf8);
+
+  if (
+    path
+      .split('/')
+      .some(
+        part => !part || part === '.' || part === '..' || part.includes('\0')
+      )
+  ) {
+    throw new FileTreeError(
+      'invalid_zip',
+      'ZIP entry does not have a valid relative path',
+      { path }
+    );
+  }
+
+  const dataOffset = getDataOffset(
+    view,
+    directoryOffset,
+    localOffset,
+    nameBytes,
+    compression,
+    compressedSize
+  );
+
+  return {
+    entry: {
+      path,
+      isDir,
+      size,
+      compressedSize,
+      compression,
+      checksum,
+      dataOffset,
+    },
+    contentKey,
+    localOffset,
+    nextPosition,
+  };
+}
+
+/**
  * Validates and indexes a single-volume ZIP without reading ordinary file payloads
  * @param bytes Complete archive, which may be a view into a larger buffer
  * @returns Entries with decoded paths, byte sizes, and local data ranges
@@ -295,122 +423,22 @@ export function parseCentralDirectory(bytes: Uint8Array): ZipEntry[] {
   let position = directoryOffset;
 
   for (let index = 0; index < count; index += 1) {
-    const nameOffset = position + CENTRAL_HEADER.size;
-
-    if (
-      nameOffset > end ||
-      view.getUint32(position, true) !== CENTRAL_HEADER.signature
-    ) {
-      throw new FileTreeError(
-        'invalid_zip',
-        'Invalid ZIP central directory entry'
-      );
-    }
-
-    const flags = view.getUint16(position + 8, true);
-    const compression = view.getUint16(position + 10, true);
-    const checksum = view.getUint32(position + 16, true);
-    const compressedSize = view.getUint32(position + 20, true);
-    const size = view.getUint32(position + 24, true);
-    const extraOffset = nameOffset + view.getUint16(position + 28, true);
-    const extraEnd = extraOffset + view.getUint16(position + 30, true);
-    const nextPosition = extraEnd + view.getUint16(position + 32, true);
-    const disk = view.getUint16(position + 34, true);
-    const attributes = view.getUint32(position + 38, true);
-    const localOffset = view.getUint32(position + 42, true);
-
-    if (nextPosition > end || disk !== 0) {
-      throw new FileTreeError(
-        'invalid_zip',
-        'ZIP central directory entry exceeds its bounds or spans disks'
-      );
-    }
-
-    if (
-      localOffset === 0xffffffff ||
-      size === 0xffffffff ||
-      compressedSize === 0xffffffff
-    ) {
-      throw new FileTreeError('invalid_zip', 'ZIP64 entries are not supported');
-    }
-
-    if (
-      (flags & ENCRYPTION_FLAGS) !== 0 ||
-      (compression !== 0 && compression !== 8)
-    ) {
-      throw new FileTreeError(
-        'invalid_zip',
-        'ZIP entry uses encryption or an unsupported compression method'
-      );
-    }
-
-    if (
-      (compression === 0 && compressedSize !== size) ||
-      (compression === 8 && compressedSize < 2)
-    ) {
-      throw new FileTreeError(
-        'invalid_zip',
-        'ZIP entry has inconsistent byte sizes'
-      );
-    }
-
-    const nameBytes = bytes.subarray(nameOffset, extraOffset);
-    const isUtf8 = (flags & 0x0800) !== 0;
-    const name = decodeFilename(
-      nameBytes,
-      isUtf8,
-      bytes.subarray(extraOffset, extraEnd)
-    );
-    const path = name.replace(/\/$/u, '');
-    const isDir =
-      name.endsWith('/') ||
-      ((attributes >>> 16) & 0xf000) === 0x4000 ||
-      (attributes & 0x10) !== 0;
-    // Keep the original decoder key unambiguous even when an extra field changes the display path
-    const contentKey = strFromU8(nameBytes, !isUtf8);
-
-    if (
-      path
-        .split('/')
-        .some(
-          part => !part || part === '.' || part === '..' || part.includes('\0')
-        )
-    ) {
-      throw new FileTreeError(
-        'invalid_zip',
-        'ZIP entry does not have a valid relative path',
-        { path }
-      );
-    }
-
-    if (paths.has(path) || contentKeys.has(contentKey)) {
+    const { entry, contentKey, localOffset, nextPosition } =
+      readCentralDirectoryEntry(bytes, view, position, directoryOffset, end);
+    if (paths.has(entry.path) || contentKeys.has(contentKey)) {
       throw new FileTreeError(
         'invalid_zip',
         'ZIP entries contain ambiguous duplicate filenames',
-        { path }
+        { path: entry.path }
       );
     }
-
-    const dataOffset = getDataOffset(
-      view,
-      directoryOffset,
-      localOffset,
-      nameBytes,
-      compression,
-      compressedSize
-    );
-    localRanges.push({ start: localOffset, end: dataOffset + compressedSize });
-    paths.set(path, isDir);
-    contentKeys.add(contentKey);
-    entries.push({
-      path,
-      isDir,
-      size,
-      compressedSize,
-      compression,
-      checksum,
-      dataOffset,
+    localRanges.push({
+      start: localOffset,
+      end: entry.dataOffset + entry.compressedSize,
     });
+    paths.set(entry.path, entry.isDir);
+    contentKeys.add(contentKey);
+    entries.push(entry);
     position = nextPosition;
   }
 

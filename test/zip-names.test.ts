@@ -1,4 +1,5 @@
 import { inflateSync, strToU8, zipSync } from 'fflate';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { ZipFileSystemAdapter } from '../src';
 
@@ -8,6 +9,53 @@ import { ZipFileSystemAdapter } from '../src';
  */
 
 vi.mock('fflate', { spy: true });
+
+describe('ZIP producer compatibility', () => {
+  it.each([
+    'python-stored.zip',
+    'python-streaming-deflate.zip',
+    'dotnet-deflate.zip',
+  ])(
+    'reads %s with Unicode names, empty directories, and nested ignore rules',
+    async filename => {
+      const bytes = readFileSync(
+        new URL(`./fixtures/zip/${filename}`, import.meta.url)
+      );
+      const adapter = new ZipFileSystemAdapter(
+        bytes,
+        { readFileMeta: true },
+        'project'
+      );
+      const tree = await adapter.read();
+      expect(tree.children).toEqual([
+        {
+          name: 'empty',
+          path: 'project/empty',
+          kind: 'directory',
+          children: [],
+        },
+        {
+          name: 'src',
+          path: 'project/src',
+          kind: 'directory',
+          children: [
+            {
+              name: '中文.txt',
+              path: 'project/src/中文.txt',
+              kind: 'file',
+              size: 5,
+            },
+          ],
+        },
+      ]);
+      const unfiltered = await adapter.read({ useGitignore: false });
+      expect(
+        unfiltered.children?.some(node => node.name === 'ignored.txt')
+      ).toBe(true);
+      expect(await adapter.read()).toEqual(tree);
+    }
+  );
+});
 
 /**
  * Replaces a two-byte ASCII filename prefix with the GBK encoding of 中
