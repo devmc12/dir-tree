@@ -51,7 +51,11 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
   async read(options?: Partial<ReadOptions>): Promise<FileNode> {
     const context = this.createReadContext(options);
 
+    const needsPicker = this.rootHandle === undefined;
     const rootHandle = await this.resolveRootHandle(context.options.mode);
+    if (needsPicker) {
+      this.markSourceReady(context);
+    }
     const rootName = rootHandle.name;
     const root: FileNode = {
       name: rootName,
@@ -69,6 +73,7 @@ export class LocalFileSystemAdapter extends BaseFileSystemAdapter {
     sortChildren(root.children, context.options.sort);
     attachFileTreeMetadata(root);
 
+    this.reportReadTiming(context);
     return root;
   }
 

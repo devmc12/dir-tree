@@ -31,6 +31,7 @@ import {
   InMemoryFileTreeAdapter,
   type FileNode,
   type ReadOptions,
+  type ReadTiming,
 } from '@devmc12/dir-tree';
 ```
 
@@ -69,6 +70,7 @@ interface ReadOptions {
   concurrency?: boolean | { limit?: number };
   mode?: 'read' | 'readwrite';
   onWarning?: (warning: ReadWarning) => void;
+  onTiming?: (timing: ReadTiming) => void;
 }
 ```
 
@@ -95,6 +97,37 @@ Common root helpers:
 - `attachFileTreeMetadata(root)` attaches non-enumerable lookup metadata used by tree UIs and fast path operations
 - `getFileTreeMetadata(root)` reads attached metadata without rebuilding it
 - `formatSize(bytes)` formats byte sizes for human-readable labels
+
+### Read Timing
+
+All built-in adapters support optional timing through `ReadOptions.onTiming`. Both direct `adapter.read()` and `FileSystemReader.read()` still return a `FileNode`; timing is not attached to nodes, indexes, or exported JSON.
+
+```ts
+interface ReadTiming {
+  prepareMs: number;
+  treeMs: number;
+  totalMs: number;
+}
+
+const tree = await reader.read({
+  onTiming: timing => {
+    console.log(timing.treeMs);
+  },
+});
+```
+
+Values are wall-clock milliseconds from `performance.now()`, with fractional precision. Each measurement starts after the adapter validates and resolves its read options and ends after the tree and its lookup metadata are complete, before the timing callback executes. `totalMs` covers the same interval as `prepareMs` plus `treeMs`; it is not the end-to-end duration of an application action or pure CPU time.
+
+| Adapter | `prepareMs` | `treeMs` |
+| --- | --- | --- |
+| Native browser directory | Waiting for a directory handle when a picker is required | Traversal, required file/rule reads, filtering, sorting, and indexing |
+| Remote repository | Reference resolution and fetching default branch/tree entries, including provider pagination and response decoding | Mapping entries, filtering, sorting, and indexing |
+| ZIP | `0`; the archive was supplied by the caller | Reading archive bytes, parsing/reusing its index, applicable rule reads, and tree construction |
+| Node, legacy directory files, dropped directory, in-memory | `0`; the source was already supplied | All processing performed by that read, including necessary I/O |
+
+Reusing a directory handle reports `prepareMs: 0`; concurrent reads sharing a pending picker each measure their own wait. ZIP cache hits report only the work actually performed in that call. No reads, downloads, or traversals are added for measurement. Construction, pre-read source selection or downloads by the caller, imported-text parsing outside adapters, and post-read state updates/rendering are excluded. For example, downloading a remote ZIP with `fetch()` before creating `ZipFileSystemAdapter` must be timed by the caller separately.
+
+No timing state or clock reads are created when the callback is absent. A successful read reports once; invalid options, source failures, and cancellation do not report. Use a synchronous callback; returned promises are not awaited, and callers are responsible for handling any asynchronous errors. Synchronous `onTiming` exceptions are ignored without logging and do not prevent the completed tree from being returned. Source failures and `onWarning` exceptions retain their existing propagation behavior. Callback overrides follow the usual constructor-default/per-call rules and are isolated between reads. `FileSystemReader` only forwards options, so custom adapters that do not implement timing remain valid and do not produce fabricated measurements.
 
 ### Errors And Warnings
 

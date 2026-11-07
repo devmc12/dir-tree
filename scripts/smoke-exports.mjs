@@ -111,6 +111,37 @@ const browserAdapters = [
   'LocalFileSystemAdapter',
 ];
 
+// Verify the timing contract through both built module formats
+for (const moduleExports of [root, commonJsModules[0]]) {
+  const reports = [];
+  const adapter = new moduleExports.InMemoryFileTreeAdapter({
+    name: 'timing',
+    path: 'timing',
+    kind: 'directory',
+  });
+  const result = await new moduleExports.FileSystemReader(adapter).read({
+    onTiming: timing => reports.push(timing),
+  });
+  const timing = reports[0];
+  if (
+    result.name !== 'timing' ||
+    reports.length !== 1 ||
+    timing.prepareMs !== 0 ||
+    timing.treeMs < 0 ||
+    timing.totalMs !== timing.treeMs
+  ) {
+    throw new Error('Invalid built package read timing');
+  }
+  const afterCallbackFailure = await adapter.read({
+    onTiming: () => {
+      throw new Error('Timing observer failed');
+    },
+  });
+  if (afterCallbackFailure.name !== result.name) {
+    throw new Error('Timing callback failure changed the read result');
+  }
+}
+
 for (const exports of [
   root,
   adapters,

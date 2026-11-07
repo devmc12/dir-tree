@@ -16,7 +16,7 @@ import { runConcurrent } from '../reader/concurrency';
  * Desc: Provides shared read option handling for file system adapters
  */
 
-type OptionalReadOptions = Pick<ReadOptions, 'sort' | 'onWarning'>;
+type OptionalReadOptions = Pick<ReadOptions, 'sort' | 'onWarning' | 'onTiming'>;
 type EffectiveReadOptions = Required<
   Omit<ReadOptions, keyof OptionalReadOptions>
 > &
@@ -27,6 +27,7 @@ export interface ReadContext {
   gitignoreRules: Map<string, GitignoreRule[]>;
   concurrencyLimit: number;
   runIo: RunReadIo;
+  timing?: { startedAt: number; treeStartedAt?: number };
 }
 
 // Default when the caller opts in without supplying an explicit bound
@@ -45,6 +46,7 @@ function resolveReadOptions(
   const sort = overrides.sort ?? defaults.sort;
   const concurrency = overrides.concurrency ?? defaults.concurrency ?? false;
   const onWarning = overrides.onWarning ?? defaults.onWarning;
+  const onTiming = overrides.onTiming ?? defaults.onTiming;
 
   return {
     depth: overrides.depth ?? defaults.depth ?? Infinity,
@@ -57,6 +59,7 @@ function resolveReadOptions(
       typeof concurrency === 'object' ? { ...concurrency } : concurrency,
     ...(sort === undefined ? {} : { sort: { ...sort } }),
     ...(onWarning === undefined ? {} : { onWarning }),
+    ...(onTiming === undefined ? {} : { onTiming }),
   };
 }
 
@@ -94,7 +97,39 @@ export abstract class BaseFileSystemAdapter implements ReaderAdapter {
       gitignoreRules: new Map(),
       concurrencyLimit,
       runIo: createReadIoScheduler(concurrencyLimit),
+      ...(effectiveOptions.onTiming === undefined
+        ? {}
+        : { timing: { startedAt: performance.now() } }),
     };
+  }
+
+  /** Marks the end of source acquisition when a read actually waits for a picker or remote data */
+  protected markSourceReady(context: ReadContext): void {
+    if (context.timing) {
+      context.timing.treeStartedAt = performance.now();
+    }
+  }
+
+  /**
+   * Reports completed adapter work before returning the tree
+   * @param context Context owned by this read
+   */
+  protected reportReadTiming(context: ReadContext): void {
+    if (!context.timing) {
+      return;
+    }
+
+    const endedAt = performance.now();
+    const { startedAt, treeStartedAt = startedAt } = context.timing;
+    try {
+      context.options.onTiming?.({
+        prepareMs: treeStartedAt - startedAt,
+        treeMs: endedAt - treeStartedAt,
+        totalMs: endedAt - startedAt,
+      });
+    } catch {
+      // Timing observers must not turn a successful tree read into a failure
+    }
   }
 
   /**

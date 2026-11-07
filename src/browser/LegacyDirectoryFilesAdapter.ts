@@ -66,6 +66,7 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
     this.sortTreeChildren(context, root);
     attachFileTreeMetadata(root);
 
+    this.reportReadTiming(context);
     return root;
   }
 

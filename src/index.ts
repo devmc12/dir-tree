@@ -21,6 +21,7 @@ export type {
   GitignoreRule,
   ReadOptions,
   ReadOptionsConfig,
+  ReadTiming,
   ReadWarning,
   SortBy,
   SortOptions,

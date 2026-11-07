@@ -88,6 +88,22 @@ const tree = await reader.read({
 console.log(renderAsciiTree(tree));
 ```
 
+### 读取耗时
+
+内置适配器可在每次成功读取后回调一次计时结果，`read()` 仍返回 `FileNode`：
+
+```ts
+const tree = await reader.read({
+  onTiming: ({ prepareMs, treeMs, totalMs }) => {
+    console.log({ prepareMs, treeMs, totalMs });
+  },
+});
+```
+
+单位是保留小数的毫秒，表示实际经过的时间。`prepareMs` 包含适配器内部的目录选择或远程仓库数据获取；`treeMs` 包含遍历、必要 I/O、过滤、构建、排序和索引；`totalMs` 是两阶段总耗时，从选项校验完成后开始，到调用回调之前结束。
+
+已传入的句柄、文件、ZIP、路径和内存树没有准备阶段（`prepareMs: 0`）。应用自行完成的选择、下载，以及适配器构造和页面渲染不计入这些时间。刷新只报告本次实际工作。未配置 `onTiming` 时不读取时钟；取消或来源读取失败不回调。请使用同步回调；同步抛出的异常会被忽略且不输出日志，已成功生成的目录树仍会正常返回。自定义适配器可自行支持这个约定，详见[计时参考](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#read-timing)。
+
 ## 数据源读取
 
 ### 内存树

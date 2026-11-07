@@ -55,6 +55,16 @@ export interface ReadWarning {
   path: string;
 }
 
+/** Wall-clock durations for one successful adapter read, in milliseconds */
+export interface ReadTiming {
+  /** Native directory selection or remote repository data acquisition inside the adapter */
+  prepareMs: number;
+  /** Tree processing including traversal, filtering, required I/O, sorting, and indexing */
+  treeMs: number;
+  /** Measured adapter work only; excludes construction, caller work, and the timing callback */
+  totalMs: number;
+}
+
 export interface ReadOptions {
   /** Maximum child depth from the root at depth 0; defaults to no limit */
   depth?: number;
@@ -74,6 +84,8 @@ export interface ReadOptions {
   mode?: 'read' | 'readwrite';
   /** Synchronous callback for optional metadata failures on retained nodes */
   onWarning?: (warning: ReadWarning) => void;
+  /** Called once after a successful built-in adapter read; synchronous callback errors are ignored */
+  onTiming?: (timing: ReadTiming) => void;
 }
 
 export interface GitignoreRule {

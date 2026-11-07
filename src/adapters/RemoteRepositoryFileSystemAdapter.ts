@@ -81,14 +81,17 @@ export class RemoteRepositoryFileSystemAdapter extends BaseFileSystemAdapter {
       ref,
       treeOptions
     );
+    this.markSourceReady(context);
     const rootName =
       subPath.split('/').filter(Boolean).at(-1) ?? parsedUrl.repositoryName;
 
-    return mapRemoteRepositoryEntriesToFileTree({
+    const root = mapRemoteRepositoryEntriesToFileTree({
       entries,
       readOptions: context.options,
       rootName,
       subPath,
     });
+    this.reportReadTiming(context);
+    return root;
   }
 }

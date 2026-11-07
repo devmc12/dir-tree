@@ -84,6 +84,7 @@ export class DroppedDirectoryEntryAdapter extends BaseFileSystemAdapter {
 
     attachFileTreeMetadata(root);
 
+    this.reportReadTiming(context);
     return root;
   }
 

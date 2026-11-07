@@ -41,6 +41,7 @@ export class InMemoryFileTreeAdapter extends BaseFileSystemAdapter {
     );
 
     attachFileTreeMetadata(root);
+    this.reportReadTiming(context);
     return root;
   }
 }

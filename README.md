@@ -88,6 +88,22 @@ const tree = await reader.read({
 console.log(renderAsciiTree(tree));
 ```
 
+### Read Timing
+
+Built-in adapters optionally report one timing result per successful read while still returning a `FileNode`:
+
+```ts
+const tree = await reader.read({
+  onTiming: ({ prepareMs, treeMs, totalMs }) => {
+    console.log({ prepareMs, treeMs, totalMs });
+  },
+});
+```
+
+Durations are wall-clock milliseconds with fractional precision. `prepareMs` covers native directory selection or remote repository data acquisition inside the adapter. `treeMs` covers tree processing, including traversal, required I/O, filtering, sorting, and indexing. `totalMs` is their combined duration, measured after option validation and before the callback.
+
+Already supplied handles, files, ZIPs, paths, and in-memory trees have no preparation stage (`prepareMs: 0`). Selection or downloads performed by your application, adapter construction, and rendering are outside these measurements. Refreshes report only that read's work. No clock is read without `onTiming`; cancellation and source failures do not call it. Keep this callback synchronous; synchronous errors it throws are ignored without logging so the successful tree is still returned. Custom adapters can opt into this contract. See the [timing reference](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#read-timing) for details.
+
 ## Read Sources
 
 ### In-memory Tree

@@ -59,6 +59,7 @@ export class NodeFileSystemAdapter extends BaseFileSystemAdapter {
     sortChildren(root.children, context.options.sort);
     attachFileTreeMetadata(root);
 
+    this.reportReadTiming(context);
     return root;
   }
 
