@@ -1,3 +1,4 @@
+import { createPathMap } from '../tree/records';
 import type { ParsedImportedTree } from './types';
 import { FileTreeError } from '../reader/errors';
 import { createImportedTreeNode } from '../reader/importedNode';
@@ -57,7 +58,7 @@ export function buildImportedTreeFromEntries(
     rootEntry?.line
   );
   root.children = [];
-  const annotations: TreeAnnotationMap = {};
+  const annotations: TreeAnnotationMap = createPathMap();
   const stack: Array<{ level: number; node: FileNode }> = [
     { level: -1, node: root },
   ];

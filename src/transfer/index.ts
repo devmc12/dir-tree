@@ -1,3 +1,4 @@
+import { createPathMap, getOwnValue } from '../tree/records';
 import { appendImportedTreeAnnotation } from '../annotations/imported';
 import type { FileNode } from '../reader/types';
 import { copyFileNodeFields } from '../reader/snapshot';
@@ -120,8 +121,8 @@ export function parseImportedFileTreeJson(
     );
   }
 
-  const annotations: TreeAnnotationMap = {};
-  const hiddenItems: FileTreeVisibilityMap = {};
+  const annotations: TreeAnnotationMap = createPathMap();
+  const hiddenItems: FileTreeVisibilityMap = createPathMap();
 
   return {
     tree: normalizeImportedFileNode(
@@ -149,8 +150,8 @@ function createExportedFileTreeNode(
   visibility: FileTreeVisibilityMap = {}
 ): ExportedFileTreeNode {
   const exportedNode: ExportedFileTreeNode = copyFileNodeFields(node);
-  const annotationText = annotations[node.path]?.comment?.trim();
-  const visibilityMode = visibility[node.path];
+  const annotationText = getOwnValue(annotations, node.path)?.comment?.trim();
+  const visibilityMode = getOwnValue(visibility, node.path);
 
   if (annotationText) {
     exportedNode.comment = annotationText;

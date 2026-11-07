@@ -1,3 +1,5 @@
+import { createPathMap, getOwnValue } from '../tree/records';
+
 /**
  * Date: 2026-06-07
  * Desc: Provides a pure cascading tree selection model
@@ -129,7 +131,7 @@ export function getTreeItemIdsWithDescendants(
 
     collectedIds.push(itemId);
 
-    const children = data.items[itemId]?.children ?? [];
+    const children = getOwnValue(data.items, itemId)?.children ?? [];
 
     for (let index = children.length - 1; index >= 0; index -= 1) {
       stack.push(children[index]!);
@@ -149,7 +151,8 @@ function createSelectionStateById(
   data: TreeSelectionData,
   selectedIdSet: Set<string>
 ): Record<string, TreeSelectionState> {
-  const selectionStateById: Record<string, TreeSelectionState> = {};
+  const selectionStateById: Record<string, TreeSelectionState> =
+    createPathMap();
 
   /**
    * Resolves one item state after recursively resolving child states
@@ -157,7 +160,7 @@ function createSelectionStateById(
    * @returns Computed selection state for the item
    */
   function resolveSelectionState(itemId: string): TreeSelectionState {
-    const item = data.items[itemId];
+    const item = getOwnValue(data.items, itemId);
 
     if (!item) {
       return 'unchecked';
@@ -217,7 +220,7 @@ function collectTreeItemIds(data: TreeSelectionData): string[] {
       continue;
     }
 
-    const item = data.items[itemId];
+    const item = getOwnValue(data.items, itemId);
 
     if (!item) {
       continue;
@@ -253,7 +256,7 @@ function getTreeAncestorIds(
 
   while (stack.length > 0) {
     const { ancestorIds, itemId } = stack.pop()!;
-    const item = data.items[itemId];
+    const item = getOwnValue(data.items, itemId);
 
     if (!item) {
       continue;
@@ -288,7 +291,7 @@ function isSelectableTreeItem(
     return false;
   }
 
-  if (!data.items[itemId]) {
+  if (!getOwnValue(data.items, itemId)) {
     return false;
   }
 

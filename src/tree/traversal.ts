@@ -2,6 +2,7 @@ import type { FileNode, FileTreeItem } from '../reader/types';
 import { copyFileNodeFields } from '../reader/snapshot';
 import {
   attachFileTreeMetadata,
+  buildFileTreeMetadata,
   getFileTreeMetadata,
 } from '../reader/metadata';
 import type { FileNodeLocation, FileTreeReadStats } from './types';
@@ -44,7 +45,10 @@ export function createPreparedFileTree(root: FileNode): FileNode {
  * @returns Item lookup keyed by path
  */
 export function getFileTreeItems(root: FileNode): Record<string, FileTreeItem> {
-  return getFileTreeMetadata(root)?.itemsByPath ?? buildFileTreeItems(root);
+  return (
+    getFileTreeMetadata(root)?.itemsByPath ??
+    buildFileTreeMetadata(root).itemsByPath
+  );
 }
 
 /**
@@ -148,47 +152,6 @@ export function createFileTreeReadStats(
     totalSize: stats.size,
     duration,
   };
-}
-
-/**
- * Builds a path-indexed item lookup by traversing a tree
- * @param root File tree root
- * @returns Item lookup keyed by path
- */
-function buildFileTreeItems(root: FileNode): Record<string, FileTreeItem> {
-  const items: Record<string, FileTreeItem> = {};
-  const stack: FileNode[] = [root];
-
-  while (stack.length > 0) {
-    const node = stack.pop();
-
-    if (!node) {
-      continue;
-    }
-
-    const isFolder = node.kind === 'directory';
-    const item: FileTreeItem = {
-      index: node.path,
-      data: node,
-      isFolder,
-    };
-
-    if (isFolder) {
-      item.children = node.children?.map(child => child.path) ?? [];
-    }
-
-    items[node.path] = item;
-
-    for (let index = (node.children?.length ?? 0) - 1; index >= 0; index -= 1) {
-      const child = node.children?.[index];
-
-      if (child) {
-        stack.push(child);
-      }
-    }
-  }
-
-  return items;
 }
 
 /**

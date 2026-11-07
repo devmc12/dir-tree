@@ -1,3 +1,4 @@
+import { createPathMap, getOwnValue } from './records';
 import type { FileTreeVisibilityMap } from './types';
 import { remapFileTreePathPrefix } from './path';
 import type { FileNode } from '../reader/types';
@@ -18,7 +19,7 @@ export function filterFileTreeVisibilityByPaths(
   validPaths: Iterable<string>
 ): FileTreeVisibilityMap {
   const pathSet = new Set(validPaths);
-  const nextVisibility: FileTreeVisibilityMap = {};
+  const nextVisibility: FileTreeVisibilityMap = createPathMap();
 
   Object.entries(visibility).forEach(([path, mode]) => {
     if (pathSet.has(path)) {
@@ -41,7 +42,7 @@ export function remapFileTreeVisibility(
   fromPath: string,
   toPath: string
 ): FileTreeVisibilityMap {
-  const nextVisibility: FileTreeVisibilityMap = {};
+  const nextVisibility: FileTreeVisibilityMap = createPathMap();
 
   Object.entries(visibility).forEach(([path, mode]) => {
     nextVisibility[remapFileTreePathPrefix(path, fromPath, toPath)] = mode;
@@ -66,7 +67,7 @@ export function createVisibleFileTree(
    * @returns Visible node clone, or null when hidden
    */
   function filterVisibleNode(node: FileNode): FileNode | null {
-    const visibilityMode = visibility[node.path];
+    const visibilityMode = getOwnValue(visibility, node.path);
 
     if (visibilityMode === 'hidden') {
       return null;

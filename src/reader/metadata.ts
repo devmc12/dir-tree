@@ -1,3 +1,4 @@
+import { createPathMap } from '../tree/records';
 import {
   type FileNode,
   type FileTreeMetadata,
@@ -37,7 +38,7 @@ export function formatSize(bytes: number): string {
  * @returns File tree metadata with items, folder paths, and stats
  */
 export function buildFileTreeMetadata(root: FileNode): FileTreeMetadata {
-  const itemsByPath: Record<string, FileTreeItem> = {};
+  const itemsByPath: Record<string, FileTreeItem> = createPathMap();
   const folderPaths = new Set<string>();
   const stack: FileNode[] = [root];
   let totalFiles = 0;

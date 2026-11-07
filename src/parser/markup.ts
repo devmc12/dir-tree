@@ -1,3 +1,4 @@
+import { createPathMap } from '../tree/records';
 import type { ParsedImportedTree, ImportedTreeParseOptions } from './types';
 import { FileTreeError } from '../reader/errors';
 import type { TreeAnnotationMap } from '../annotations/types';
@@ -90,7 +91,7 @@ export function parseImportedTreeXml(
     );
   }
 
-  const annotations: TreeAnnotationMap = {};
+  const annotations: TreeAnnotationMap = createPathMap();
   const paths = new Set<string>();
 
   if (candidateElements.length === 1) {

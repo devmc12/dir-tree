@@ -1,3 +1,4 @@
+import { createPathMap, getOwnValue } from '../tree/records';
 import type { FileNode } from '../reader/types';
 import { getFileTreeItems } from '../tree/traversal';
 import type {
@@ -48,7 +49,7 @@ export function getTreeAnnotationText(
   annotations: TreeAnnotationMap,
   path: string
 ): string {
-  return annotations[path]?.comment ?? '';
+  return getOwnValue(annotations, path)?.comment ?? '';
 }
 
 /**
@@ -78,9 +79,7 @@ export function applyTreeAnnotationPatches(
 
   patches.forEach(patch => {
     const comment = normalizeTreeAnnotationComment(patch.comment);
-    const current = Object.prototype.hasOwnProperty.call(result, patch.path)
-      ? result[patch.path]
-      : undefined;
+    const current = getOwnValue(result, patch.path);
 
     if (!comment && !current) {
       return;
@@ -124,7 +123,7 @@ export function filterTreeAnnotationsByPaths(
   validPaths: Iterable<string>
 ): TreeAnnotationMap {
   const pathSet = new Set(validPaths);
-  const nextAnnotations: TreeAnnotationMap = {};
+  const nextAnnotations: TreeAnnotationMap = createPathMap();
 
   Object.values(annotations).forEach(annotation => {
     if (pathSet.has(annotation.path)) {
@@ -169,7 +168,7 @@ export function remapTreeAnnotations(
   fromPath: string,
   toPath: string
 ): TreeAnnotationMap {
-  const nextAnnotations: TreeAnnotationMap = {};
+  const nextAnnotations: TreeAnnotationMap = createPathMap();
 
   Object.values(annotations).forEach(annotation => {
     const nextPath = remapTreeAnnotationPath(annotation.path, fromPath, toPath);
@@ -196,7 +195,7 @@ export function mergeParsedTreeAnnotationPatches(
   affectedPaths: Iterable<string>
 ): TreeAnnotationMap {
   const affectedPathSet = new Set(affectedPaths);
-  const nextAnnotations: TreeAnnotationMap = {};
+  const nextAnnotations: TreeAnnotationMap = createPathMap();
 
   Object.values(annotations).forEach(annotation => {
     if (!affectedPathSet.has(annotation.path)) {
@@ -211,7 +210,7 @@ export function mergeParsedTreeAnnotationPatches(
       return;
     }
 
-    const currentAnnotation = annotations[patch.path];
+    const currentAnnotation = getOwnValue(annotations, patch.path);
 
     nextAnnotations[patch.path] = {
       path: patch.path,

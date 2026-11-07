@@ -1,3 +1,4 @@
+import { getOwnValue } from '../tree/records';
 import type { AsciiTreeLine } from '../ascii/types';
 import { createAsciiTreeLineNumberMap } from './ascii';
 import { applyTreeAnnotationPatches } from './patch';
@@ -42,7 +43,8 @@ export function createAnnotationDiffResult(
 
   dedupedPatches.forEach(patch => {
     const nextComment = patch.comment.trim();
-    const previousComment = annotations[patch.path]?.comment.trim() ?? '';
+    const previousComment =
+      getOwnValue(annotations, patch.path)?.comment.trim() ?? '';
 
     if (!allowedPaths.has(patch.path)) {
       skipped.push({
@@ -143,7 +145,8 @@ export function createEditedAsciiAnnotationDiff(
   const diff = createEmptyEditedAsciiAnnotationDiff();
 
   parsedResult.patches.forEach(patch => {
-    const previousComment = annotations[patch.path]?.comment.trim() ?? '';
+    const previousComment =
+      getOwnValue(annotations, patch.path)?.comment.trim() ?? '';
     const nextComment = patch.comment.trim();
 
     if (previousComment === nextComment) {

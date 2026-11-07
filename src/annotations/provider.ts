@@ -1,3 +1,4 @@
+import { getOwnValue } from '../tree/records';
 import type { FileNode } from '../reader/types';
 import { filterNestedFileTreePaths, isFileTreePathWithin } from '../tree/path';
 import { getFileTreeItems } from '../tree/traversal';
@@ -94,7 +95,7 @@ function hasTreeAnnotation(
   annotations: TreeAnnotationMap,
   path: string
 ): boolean {
-  return (annotations[path]?.comment.trim().length ?? 0) > 0;
+  return (getOwnValue(annotations, path)?.comment.trim().length ?? 0) > 0;
 }
 
 /**
@@ -152,7 +153,7 @@ function createAnnotationProviderRequestNode(
   node: FileNode,
   annotations: TreeAnnotationMap
 ): AnnotationRequestNode {
-  const comment = annotations[node.path]?.comment.trim();
+  const comment = getOwnValue(annotations, node.path)?.comment.trim();
   const requestNode: AnnotationRequestNode = {
     path: node.path,
     kind: node.kind,
