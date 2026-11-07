@@ -148,26 +148,47 @@ export class LegacyDirectoryFilesAdapter extends BaseFileSystemAdapter {
     context: ReadContext,
     entries: LegacyDirectoryFileEntry[]
   ): Promise<void> {
-    const tasks = entries
+    const ignoreFiles = entries
       .filter(entry => entry.name === '.gitignore')
-      .map(entry => async (): Promise<void> => {
-        try {
-          this.registerGitignoreRules(
-            context,
-            entry.parentPath,
-            await context.runIo(() => entry.file.text())
-          );
-        } catch (error) {
-          throwReadFailure(
-            'gitignore_read_failed',
-            'Could not read .gitignore',
-            entry.fullPath,
-            error
-          );
-        }
-      });
+      .sort(
+        (left, right) =>
+          left.relativeSegments.length - right.relativeSegments.length
+      );
 
-    await this.executeTasks(context, tasks);
+    // Parents must be loaded before deciding whether a nested rule scope is reachable
+    for (const entry of ignoreFiles) {
+      const directories = entry.relativeSegments.slice(0, -1);
+      if (
+        directories.length >= context.options.depth ||
+        (directories.length > 0 &&
+          ((!context.options.showHidden &&
+            directories.some(name => name.startsWith('.'))) ||
+            this.isPathExcludedByPatterns(context, entry.parentPath) ||
+            this.isGitIgnored(
+              context,
+              entry.parentPath,
+              undefined,
+              'directory'
+            )))
+      ) {
+        continue;
+      }
+
+      try {
+        this.registerGitignoreRules(
+          context,
+          entry.parentPath,
+          await context.runIo(() => entry.file.text())
+        );
+      } catch (error) {
+        throwReadFailure(
+          'gitignore_read_failed',
+          'Could not read .gitignore',
+          entry.fullPath,
+          error
+        );
+      }
+    }
   }
 
   /**

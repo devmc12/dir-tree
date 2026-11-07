@@ -24,6 +24,7 @@ import {
   type FileNode,
   type RemoteRepositoryApiClient,
   type SortOptions,
+  type ReadOptions,
   createExportedFileTreeJson,
 } from '../src';
 import {
@@ -361,6 +362,107 @@ describe('reader adapters', () => {
         path: 'project/.gitignore',
         cause,
       });
+    }
+  });
+
+  it.each<{ options: ReadOptions; folder: string }>([
+    { options: { depth: 0 }, folder: 'nested' },
+    { options: { depth: 1 }, folder: 'nested' },
+    { options: { exclude: ['nested'] }, folder: 'nested' },
+    { options: { exclude: ['project/nested'] }, folder: 'nested' },
+    { options: {}, folder: '.hidden' },
+  ])(
+    'does not read unreachable legacy rule files: $options / $folder',
+    async ({ options, folder }) => {
+      const ignore = createLegacyDirectoryFile(
+        `project/${folder}/.gitignore`,
+        ''
+      );
+      const read = vi
+        .spyOn(ignore, 'text')
+        .mockRejectedValue(new Error('unreadable'));
+      const adapter = new LegacyDirectoryFilesAdapter([
+        ignore,
+        createLegacyDirectoryFile('project/visible.txt', ''),
+      ]);
+      await expect(adapter.read(options)).resolves.toMatchObject({
+        name: 'project',
+      });
+      expect(read).not.toHaveBeenCalled();
+      await expect(adapter.read({ showHidden: true })).rejects.toMatchObject({
+        code: 'gitignore_read_failed',
+      });
+    }
+  );
+
+  it('applies parent rules before nested files regardless of legacy input order', async () => {
+    const ignore = createLegacyDirectoryFile('project/ignored/.gitignore', '');
+    const read = vi
+      .spyOn(ignore, 'text')
+      .mockRejectedValue(new Error('unreadable'));
+    const adapter = new LegacyDirectoryFilesAdapter([
+      ignore,
+      createLegacyDirectoryFile('project/.gitignore', 'ignored/'),
+      createLegacyDirectoryFile('project/visible.txt', ''),
+    ]);
+    expect((await adapter.read()).children?.map(node => node.name)).toEqual([
+      'visible.txt',
+    ]);
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('uses the same nested ignore filtering for legacy, native, dropped, and ZIP sources', async () => {
+    const nested = [
+      createLocalFileHandle('.gitignore', '!keep.txt'),
+      createLocalFileHandle('keep.txt', ''),
+      createLocalFileHandle('skip.txt', ''),
+    ];
+    const adapters = [
+      new LegacyDirectoryFilesAdapter([
+        createLegacyDirectoryFile('project/sub/.gitignore', '!keep.txt'),
+        createLegacyDirectoryFile('project/sub/keep.txt', ''),
+        createLegacyDirectoryFile('project/sub/skip.txt', ''),
+        createLegacyDirectoryFile('project/.gitignore', '*.txt'),
+      ]),
+      new LocalFileSystemAdapter(
+        {},
+        createLocalDirectoryHandle('project', [
+          createLocalFileHandle('.gitignore', '*.txt'),
+          createLocalDirectoryHandle('sub', nested),
+        ]) as unknown as FileSystemDirectoryHandle
+      ),
+      new DroppedDirectoryEntryAdapter(
+        createDroppedDirectoryEntry('project', [
+          createDroppedFileEntry('.gitignore', '*.txt'),
+          createDroppedDirectoryEntry('sub', [
+            createDroppedFileEntry('.gitignore', '!keep.txt'),
+            createDroppedFileEntry('keep.txt', ''),
+            createDroppedFileEntry('skip.txt', ''),
+          ]),
+        ])
+      ),
+      new ZipFileSystemAdapter(
+        zipSync({
+          '.gitignore': strToU8('*.txt'),
+          'sub/.gitignore': strToU8('!keep.txt'),
+          'sub/keep.txt': strToU8(''),
+          'sub/skip.txt': strToU8(''),
+        }),
+        {},
+        'project'
+      ),
+    ];
+    for (const adapter of adapters) {
+      expect((await adapter.read()).children).toEqual([
+        {
+          name: 'sub',
+          path: 'project/sub',
+          kind: 'directory',
+          children: [
+            { name: 'keep.txt', path: 'project/sub/keep.txt', kind: 'file' },
+          ],
+        },
+      ]);
     }
   });
 
