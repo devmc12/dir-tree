@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 2.0.0
+
 - Add optional per-read `onTiming` reports for source preparation, tree processing, and measured total duration across built-in adapters, isolating synchronous timing callback failures from successful reads
 - Accept displayed dot roots in tree text and share structural name validation between editing and importing
 - Skip legacy directory ignore files outside the current read scope, loading parent rules first
