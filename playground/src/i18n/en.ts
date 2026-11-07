@@ -146,6 +146,11 @@ export const en = {
     size: 'bytes',
   },
   status: {
+    cancelled: 'Selection cancelled',
+    ignoreReadFailed: 'Could not read an applicable .gitignore file',
+    invalidZip: 'ZIP archive is invalid or unsupported',
+    invalidReadOptions: 'Read options are invalid',
+    metadataUnavailable: 'Loaded; some file metadata is unavailable',
     annotationDeleted: 'Annotation deleted',
     annotationSaved: 'Annotation saved',
     copied: 'Copied',

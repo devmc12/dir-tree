@@ -1,6 +1,6 @@
 # Playground
 
-The browser and Node playground migrations to the unreleased 2.0 API are still pending. The commands below describe the examples' workflow, not a claim that the current examples pass against the modified library. Migrate browser imports and removed node-handle helpers separately, then verify both source development and the packed library without aliases. See [Migrating to 2.0](migrate-v2.md).
+The browser and Node playgrounds use the unreleased 2.0 API. Both source development and temporary consumers of the packed library have been checked. Native directory picker permissions and desktop directory dragging remain manual browser checks. See [Migrating to 2.0](migrate-v2.md).
 
 `playground/` is the repository's Vite React reference implementation for the headless `dir-tree` package.
 
@@ -132,6 +132,10 @@ Belongs in root `src/`:
 - selection algorithms that do not depend on React
 
 ## Regression Checks
+
+The successful reader is retained for option refreshes, so adapters keep the original source and ZIP index. Each call still receives the current UI settings; clearing excludes restores nodes from that source.
+
+Run the small option-migration regressions with `npm --prefix playground-node run test:migration`. To verify package boundaries, install the local tarball in temporary copies of both examples, remove only those copies' source aliases/paths, and repeat type/build/runtime checks. The Node package consumer can use `lib: ["ES2022"]`; the source development config also includes DOM declarations needed when compiling the library's fetch/decoder implementation. Keep temporary package paths out of committed manifests.
 
 Run from the root before publishing or after larger UI migrations:
 

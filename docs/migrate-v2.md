@@ -9,7 +9,7 @@ The read, edit, render, and export workflow stays the same. Make the following c
 5. **Check runtime and options.** Use Node.js 18.18.1 or newer as a consumer. An explicit concurrency limit must be a finite positive integer. Use a `Blob` to reuse a ZIP index between reads, or keep caller-owned bytes unchanged while a read is in progress.
 6. **Treat path maps as dictionaries.** Index, annotation, visibility, and selection maps can have a null prototype. Use `Object.keys`/`Object.entries` and own-property checks instead of `map.hasOwnProperty()`. Imported maps preserve special names such as `__proto__`; inherited properties on caller-supplied objects are ignored.
 
-This checkout contains the unreleased 2.0 API while package metadata still identifies 1.0.5. The two playgrounds and `dir-tree-web` are separate migrations and have not yet been validated against this API. They can use a locally packed candidate without waiting for npm publication. Do not treat passing library tests as completed application migration.
+This checkout contains the unreleased 2.0 API while package metadata still identifies 1.0.5. The two playgrounds and `dir-tree-web` have been migrated locally and checked using the same packed candidate as well as source development. Native picker permissions and desktop directory dragging remain manual browser checks. Web still declares the published 1.x dependency until the real 2.0 release; use its `dev:local-headless` mode while working with sibling source. Local migration does not require npm publication, and passing library tests alone does not replace consumer checks.
 
 ```ts
 import {

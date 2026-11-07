@@ -347,7 +347,7 @@ dir-tree/src
 
 ## Playground
 
-两个 playground 的 2.0 迁移尚未完成，以下命令保留作为迁移后的操作参考；库检查通过不代表示例已通过集成验收。
+两个 playground 已迁移到 2.0 API。日常开发使用源码别名；迁移验证还检查了去掉别名、安装真实打包产物的临时消费者。原生目录选择器权限和桌面目录拖入仍需人工浏览器确认。
 
 GitHub 仓库包含 `playground/`，是一个简单的 Vite React 示例，通过本地 Vite 与 TypeScript 别名演示公开的 `dir-tree` 导入。它只是一个最小参考实现，并不完整。完整的应用请见 [dir-tree.com](https://dir-tree.com/)。
 
@@ -386,4 +386,4 @@ npm run pack:verify
 
 `npm run smoke:install` 会打包本地包，将 tarball 安装到一个临时的消费者项目中，并验证 ESM、CommonJS 与 TypeScript 消费者导入。
 
-两个 playground 独立迁移完成后，再运行浏览器示例类型检查、构建和 Node 示例验收；见 [Playground 文档](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md)。
+两个 playground 的类型检查、构建和 Node 示例需独立验收，并运行 `npm --prefix playground-node run test:migration`；见 [Playground 文档](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md)。

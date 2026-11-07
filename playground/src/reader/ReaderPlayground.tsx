@@ -1,10 +1,13 @@
-import { useMemo, useReducer, type DragEvent, type ReactNode } from 'react';
 import {
-  DroppedDirectoryEntryAdapter,
+  useMemo,
+  useReducer,
+  useRef,
+  type DragEvent,
+  type ReactNode,
+} from 'react';
+import {
   FileSystemReader,
   InMemoryFileTreeAdapter,
-  LegacyDirectoryFilesAdapter,
-  LocalFileSystemAdapter,
   ZipFileSystemAdapter,
   createExportedFileTreeJson,
   createFileTreeDownloadFilename,
@@ -30,6 +33,9 @@ import {
   type TreeAnnotationMap,
 } from '@devmc12/dir-tree/annotations';
 import {
+  DroppedDirectoryEntryAdapter,
+  LegacyDirectoryFilesAdapter,
+  LocalFileSystemAdapter,
   isFileTreeSourceDrag,
   isLegacyDirectoryPickerSupported,
   isNativeDirectoryPickerSupported,
@@ -93,6 +99,7 @@ export function ReaderPlayground(): ReactNode {
       sampleLabel: dictionaries.en.source.sampleLabel,
     })
   );
+  const readerRef = useRef<FileSystemReader | null>(null);
   const copy = dictionaries[state.locale];
   const visibleTree = useMemo(
     () => createVisibleFileTree(state.tree, state.visibility) ?? state.tree,
@@ -169,13 +176,34 @@ export function ReaderPlayground(): ReactNode {
     error: unknown,
     fallbackText = copy.status.importFailed
   ): void {
-    dispatch({
-      type: 'set-status',
-      status: createStatus(
-        error instanceof Error ? error.message : fallbackText,
-        'error'
-      ),
-    });
+    const details = typeof error === 'object' && error !== null ? error : null;
+    if (details && 'name' in details && details.name === 'AbortError') {
+      dispatch({
+        type: 'set-status',
+        status: createStatus(copy.status.cancelled, 'info'),
+      });
+      return;
+    }
+
+    const code = details && 'code' in details ? details.code : undefined;
+    let text = fallbackText;
+    switch (code) {
+      case 'gitignore_read_failed':
+        text = copy.status.ignoreReadFailed;
+        break;
+      case 'invalid_zip':
+        text = copy.status.invalidZip;
+        break;
+      case 'invalid_read_option':
+        text = copy.status.invalidReadOptions;
+        break;
+      case 'invalid_tree':
+      case 'duplicate_tree_path':
+      case 'read_failed':
+        text = copy.status.importFailed;
+        break;
+    }
+    dispatch({ type: 'set-status', status: createStatus(text, 'error') });
   }
 
   async function readWithAdapter(options: {
@@ -196,9 +224,13 @@ export function ReaderPlayground(): ReactNode {
 
     try {
       const reader = new FileSystemReader(options.adapter);
-      const nextTree = await reader.read(
-        createPlaygroundReadOptions(nextReadOptions)
-      );
+      let metadataUnavailable = false;
+      const nextTree = await reader.read({
+        ...createPlaygroundReadOptions(nextReadOptions),
+        onWarning: () => {
+          metadataUnavailable = true;
+        },
+      });
       const annotations =
         options.annotations ??
         filterTreeAnnotationsByPaths(
@@ -206,12 +238,18 @@ export function ReaderPlayground(): ReactNode {
           collectFileTreePaths(nextTree)
         );
 
+      readerRef.current = reader;
       dispatch({
         type: 'commit-read',
         annotations,
         readOptions: nextReadOptions,
         source: options.source,
-        status: createStatus(options.statusText, 'success'),
+        status: createStatus(
+          metadataUnavailable
+            ? copy.status.metadataUnavailable
+            : options.statusText,
+          metadataUnavailable ? 'info' : 'success'
+        ),
         tree: nextTree,
         visibility: options.visibility,
       });
@@ -241,10 +279,7 @@ export function ReaderPlayground(): ReactNode {
         const handle = await pickNativeDirectory();
 
         await readWithAdapter({
-          adapter: new LocalFileSystemAdapter(
-            createPlaygroundReadOptions(state.readOptions),
-            handle
-          ),
+          adapter: new LocalFileSystemAdapter({}, handle),
           source: {
             handle,
             kind: 'native-directory',
@@ -272,10 +307,7 @@ export function ReaderPlayground(): ReactNode {
       const files = await openLegacyDirectoryPicker({ recursive: true });
 
       await readWithAdapter({
-        adapter: new LegacyDirectoryFilesAdapter(
-          files,
-          createPlaygroundReadOptions(state.readOptions)
-        ),
+        adapter: new LegacyDirectoryFilesAdapter(files),
         source: {
           files,
           kind: 'legacy-directory',
@@ -291,11 +323,7 @@ export function ReaderPlayground(): ReactNode {
 
   async function readZipFile(file: File): Promise<void> {
     await readWithAdapter({
-      adapter: new ZipFileSystemAdapter(
-        file,
-        createPlaygroundReadOptions(state.readOptions),
-        file.name
-      ),
+      adapter: new ZipFileSystemAdapter(file, {}, file.name),
       source: {
         file,
         kind: 'zip',
@@ -308,75 +336,14 @@ export function ReaderPlayground(): ReactNode {
   }
 
   async function applyReadOptions(): Promise<void> {
-    const nextReadOptions = state.readOptions;
-
-    const source = state.source;
-
-    if (source.kind === 'sample') {
-      await readWithAdapter({
-        adapter: new InMemoryFileTreeAdapter(createSampleTree()),
-        annotations: filterTreeAnnotationsByPaths(
-          state.annotations,
-          collectFileTreePaths(createSampleTree())
-        ),
-        nextReadOptions,
-        source,
-        statusText: copy.status.loaded,
-      });
-      return;
-    }
-
-    if (source.kind === 'legacy-directory') {
-      await readWithAdapter({
-        adapter: new LegacyDirectoryFilesAdapter(
-          source.files,
-          createPlaygroundReadOptions(nextReadOptions)
-        ),
-        nextReadOptions,
-        source,
-        statusText: copy.status.loaded,
-      });
-      return;
-    }
-
-    if (source.kind === 'dropped-directory-entry') {
-      await readWithAdapter({
-        adapter: new DroppedDirectoryEntryAdapter(
-          source.entry,
-          createPlaygroundReadOptions(nextReadOptions)
-        ),
-        nextReadOptions,
-        source,
-        statusText: copy.status.loaded,
-      });
-      return;
-    }
-
-    if (source.kind === 'zip') {
-      await readWithAdapter({
-        adapter: new ZipFileSystemAdapter(
-          source.file,
-          createPlaygroundReadOptions(nextReadOptions),
-          source.name
-        ),
-        nextReadOptions,
-        source,
-        statusText: copy.status.loaded,
-      });
-      return;
-    }
-
-    if (source.kind === 'native-directory') {
-      await readWithAdapter({
-        adapter: new LocalFileSystemAdapter(
-          createPlaygroundReadOptions(nextReadOptions),
-          source.handle
-        ),
-        nextReadOptions,
-        source,
-        statusText: copy.status.loaded,
-      });
-    }
+    await readWithAdapter({
+      adapter:
+        readerRef.current?.getAdapter() ??
+        new InMemoryFileTreeAdapter(createSampleTree()),
+      nextReadOptions: state.readOptions,
+      source: state.source,
+      statusText: copy.status.loaded,
+    });
   }
 
   function resolveActionNode(path?: string) {
@@ -579,10 +546,7 @@ export function ReaderPlayground(): ReactNode {
     if (source.kind === 'directory') {
       if (source.access === 'handle' && source.handle) {
         await readWithAdapter({
-          adapter: new LocalFileSystemAdapter(
-            createPlaygroundReadOptions(state.readOptions),
-            source.handle
-          ),
+          adapter: new LocalFileSystemAdapter({}, source.handle),
           source: {
             handle: source.handle,
             kind: 'native-directory',
@@ -596,10 +560,7 @@ export function ReaderPlayground(): ReactNode {
 
       if (source.access === 'entry' && source.entry) {
         await readWithAdapter({
-          adapter: new DroppedDirectoryEntryAdapter(
-            source.entry,
-            createPlaygroundReadOptions(state.readOptions)
-          ),
+          adapter: new DroppedDirectoryEntryAdapter(source.entry),
           source: {
             entry: source.entry,
             kind: 'dropped-directory-entry',
@@ -620,11 +581,7 @@ export function ReaderPlayground(): ReactNode {
 
     if (source.kind === 'zip') {
       await readWithAdapter({
-        adapter: new ZipFileSystemAdapter(
-          source.file,
-          createPlaygroundReadOptions(state.readOptions),
-          source.name
-        ),
+        adapter: new ZipFileSystemAdapter(source.file, {}, source.name),
         source: {
           file: source.file,
           kind: 'zip',

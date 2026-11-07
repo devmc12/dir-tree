@@ -314,7 +314,7 @@ Public entry points are listed in `package.json#exports`. Common reader APIs are
 
 ## Playground
 
-The two playground migrations to 2.0 are pending. The commands below remain workflow references for after migration; passing library checks does not validate the examples.
+The two playgrounds use the 2.0 API. Development uses source aliases; migration verification also checks temporary consumers installed from the packed library without those aliases. Native picker permissions and desktop directory dragging still require manual browser checks.
 
 The GitHub repository includes `playground/`, a small Vite React example that demonstrates the public `@devmc12/dir-tree` imports through local Vite and TypeScript aliases. It is a minimal reference, not a full app. For the complete application, see [dir-tree.com](https://dir-tree.com/).
 
@@ -353,4 +353,4 @@ npm run pack:verify
 
 `npm run smoke:install` packs the local package, installs the tarball into a temporary consumer project, and verifies ESM, CommonJS, and TypeScript consumer imports.
 
-After migrating the examples separately, run the browser playground typecheck/build and Node example checks; see the [Playground guide](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md).
+Run the browser playground typecheck/build and Node example checks separately, including `npm --prefix playground-node run test:migration`; see the [Playground guide](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md).

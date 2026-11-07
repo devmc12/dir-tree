@@ -18,7 +18,6 @@
       "@devmc12/dir-tree/adapters": ["../src/adapters/index.ts"],
       "@devmc12/dir-tree/annotations": ["../src/annotations/index.ts"],
       "@devmc12/dir-tree/ascii": ["../src/ascii/index.ts"],
-      "@devmc12/dir-tree/browser": ["../src/browser/index.ts"],
       "@devmc12/dir-tree/node": ["../src/node/index.ts"],
       "@devmc12/dir-tree/parser": ["../src/parser/index.ts"],
       "@devmc12/dir-tree/selection": ["../src/selection/index.ts"],

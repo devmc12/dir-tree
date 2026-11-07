@@ -1,5 +1,5 @@
 import type { FileNode, SortBy, SortOrder } from '@devmc12/dir-tree';
-import type { DroppedFileSystemDirectoryEntry } from '@devmc12/dir-tree/adapters';
+import type { DroppedFileSystemDirectoryEntry } from '@devmc12/dir-tree/browser';
 import type {
   AsciiTreeConnectorParts,
   AsciiTreeConnectorStyle,

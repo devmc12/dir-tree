@@ -2,7 +2,7 @@
 
 Use this checklist before publishing `@devmc12/dir-tree` to npm.
 
-The current 2.0 work is unreleased; package metadata remains at 1.0.5. Keep library checks separate from the pending playground and Web migrations. Local migration can use a candidate tarball before publication. Once the integrations are verified and release is requested, choose the version, update the changelog and temporary migration notices, and run the release workflow. CI completion is not required between every local implementation step.
+The current 2.0 work is unreleased; package metadata remains at 1.0.5. Keep library checks separate from the playground and Web migration checks. Local migration can use a candidate tarball before publication. Once the integrations are verified and release is requested, choose the version, update the changelog and temporary migration notices, and run the release workflow. CI completion is not required between every local implementation step.
 
 The root package is the only published artifact. `playground/`, `docs/`, `src/`, `test/`, local scripts, and Vite React UI source must stay in the GitHub repository but out of the npm tarball.
 

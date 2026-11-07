@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/main.ts",
+    "test:migration": "tsx --test test/migration.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

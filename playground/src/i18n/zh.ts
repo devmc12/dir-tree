@@ -142,6 +142,11 @@ export const zh = {
     size: '字节',
   },
   status: {
+    cancelled: '已取消选择',
+    ignoreReadFailed: '无法读取适用的 .gitignore 文件',
+    invalidZip: 'ZIP 文件无效或不受支持',
+    invalidReadOptions: '读取选项无效',
+    metadataUnavailable: '已加载，部分文件元数据不可用',
     annotationDeleted: '注释已删除',
     annotationSaved: '注释已保存',
     copied: '已复制',

@@ -4,6 +4,8 @@
 
 It mirrors the browser `playground/` setup: it imports the public `dir-tree` entry points and maps them to the package source through TypeScript `paths`, so the code reads exactly like a real consumer.
 
+The Node example keeps DOM declarations in its source-alias development configuration because TypeScript checks shared library implementation helpers as well. The packed package is separately checked using only `ES2022` and Node types. Browser adapters and picker types belong to the `/browser` entry and are demonstrated by the browser playground.
+
 ## Run
 
 From the repository root:
@@ -12,6 +14,7 @@ From the repository root:
 npm install
 npm --prefix playground-node install
 npm run start:playground-node
+npm --prefix playground-node run test:migration
 ```
 
 Or inside `playground-node/`:
@@ -34,3 +37,5 @@ npm start
 ## Scope
 
 This playground is intentionally minimal. It uses only Node built-ins plus `tsx` and TypeScript. Browser-only capabilities such as the directory picker and drag-and-drop source resolution live in `playground/`, not here.
+
+`test:migration` uses the existing `tsx` tool and Node's test runner to check that the browser playground's settings clear exclusions and do not retain temporary depth or hidden settings between reads. The test imports the sibling browser helper, so keep both playground folders together when checking a packed candidate in a temporary consumer directory. Remove TypeScript source paths and Vite aliases in that temporary copy to verify installed package resolution.

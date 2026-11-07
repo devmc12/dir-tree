@@ -10,7 +10,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['dist/**', 'node_modules/**', 'playground/dist/**'],
+    ignores: ['dist/**', 'node_modules/**', 'playground/dist/**', '.tmp/**'],
   },
   {
     files: ['src/**/*.ts', 'test/**/*.ts'],
