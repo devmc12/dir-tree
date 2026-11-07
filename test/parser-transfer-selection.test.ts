@@ -70,6 +70,34 @@ const unicodeRoundTripTree = {
 };
 
 describe('parser utilities', () => {
+  it('imports a displayed dot root without allowing dot child names', () => {
+    const parsed = parseImportedTreeText(
+      '.\n├── src/\n└── package.json',
+      'project'
+    );
+    expect(parsed.tree.path).toBe('project');
+    expect(parsed.tree.children?.map(node => node.path)).toEqual([
+      'project/src',
+      'project/package.json',
+    ]);
+    expect(() => parseImportedTreeText('project\n└── .', 'fallback')).toThrow(
+      expect.objectContaining({ code: 'invalid_tree' })
+    );
+  });
+
+  it('imports dot-mode output while preserving its displayed outer root', () => {
+    const text = renderAsciiTree(unicodeRoundTripTree, {
+      rootLabelMode: 'dot',
+    });
+    const parsed = parseImportedTreeText(text, 'workspace');
+    expect(parsed.tree.path).toBe('workspace');
+    expect(parsed.tree.children?.[0]?.name).toBe('project');
+    const restored = parseImportedFileTreeJson(
+      createExportedFileTreeJson(parsed.tree)
+    );
+    expect(restored.tree).toEqual(parsed.tree);
+  });
+
   it.each<{
     format: ImportedTreeFormat;
     text: string;

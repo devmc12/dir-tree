@@ -39,10 +39,15 @@ export function buildImportedTreeFromEntries(
     fallbackRootName
   );
   const rootEntry = normalizedEntries[0];
-  const rootName = sanitizeNodeName(
+  const rootLabel = sanitizeNodeName(
     rootEntry?.label ?? fallbackRootName,
     fallbackRootName
   );
+  // A leading dot denotes the displayed root, not a literal child name
+  const rootName =
+    rootLabel === '.'
+      ? sanitizeNodeName(fallbackRootName, 'file-tree')
+      : rootLabel;
   const paths = new Set<string>();
   const root = createImportedTreeNode(
     paths,
