@@ -1,6 +1,6 @@
 # Playground
 
-The browser and Node playgrounds use the unreleased 2.0 API. Both source development and temporary consumers of the packed library have been checked. Native directory picker permissions and desktop directory dragging remain manual browser checks. See [Migrating to 2.0](migrate-v2.md).
+The browser and Node playgrounds use the 2.0 API, available in the published package starting with 2.0.0. Both source development and temporary consumers of the packed library have been checked. Native directory picker permissions and desktop directory dragging remain manual browser checks. See [Migrating to 2.0](migrate-v2.md).
 
 `playground/` is the repository's Vite React reference implementation for the headless `dir-tree` package.
 

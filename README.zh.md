@@ -35,7 +35,7 @@
 
 ## 安装
 
-当前工作区说明的是**尚未发布的 2.0 API**；包版本暂时仍为 1.0.5。npm 已发布包不应被视为包含这些改动。升级前请阅读[迁移说明](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)。
+本文档介绍 **2.0 API**，这些 API 已随 **2.0.0** 发布到 npm。从 1.x 升级前，请阅读[迁移说明](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)，了解破坏性变更及新的用法。
 
 ```bash
 npm install @devmc12/dir-tree

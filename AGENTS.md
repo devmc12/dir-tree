@@ -113,6 +113,14 @@ npm run pack:verify
 
 <!-- END:verification-rules -->
 
+## Pre-release Documentation Checks
+
+- Before preparing a release commit and tag, review both READMEs and relevant `docs/` pages for version numbers, release status, installation instructions, and migration notices
+- Match current-release statements to the target `package.json` and lockfile versions, changelog, and intended tag; verify claims about playground or Web migration and dependencies against the actual consumer files
+- Remove obsolete claims that the released API is still unreleased, package metadata still uses an older version, or consumers must wait for publication; preserve historical changelog entries, clearly labeled version examples, and the next release's `Unreleased` heading
+- Review the final documentation diff and check formatting; keyword searches help locate stale text but do not replace reading it in context
+- Include corrected READMEs in the release snapshot before packaging; later Git commits do not update documentation inside an already-published npm version
+
 # Commit Workflow
 
 - When the user requests code changes, implement and verify them, then create a local commit automatically without waiting for another request to commit

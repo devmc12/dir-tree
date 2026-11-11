@@ -2,7 +2,7 @@
 
 Use this checklist before publishing `@devmc12/dir-tree` to npm.
 
-The current 2.0 work is unreleased; package metadata remains at 1.0.5. Keep library checks separate from the playground and Web migration checks. Local migration can use a candidate tarball before publication. Once the integrations are verified and release is requested, choose the version, update the changelog and temporary migration notices, and run the release workflow. CI completion is not required between every local implementation step.
+Keep library checks separate from the playground and Web migration checks. Local migration can use a candidate tarball before publication. Once the integrations are verified and release is requested, choose the version, update the changelog and temporary migration notices, and run the release workflow. CI completion is not required between every local implementation step.
 
 The root package is the only published artifact. `playground/`, `docs/`, `src/`, `test/`, local scripts, and Vite React UI source must stay in the GitHub repository but out of the npm tarball.
 
@@ -43,6 +43,8 @@ Before a release, update the relevant docs:
 
 README links to docs through GitHub URLs because `docs/` is intentionally not published to npm.
 
+Review release status as well as API examples. Check both READMEs, the migration guide, playground docs, and this checklist against the target package and lockfile versions, changelog, and intended release tag. Remove obsolete statements such as "unreleased API", "package metadata still identifies an older version", or "waiting for publication" from the release snapshot. Verify consumer dependency claims against their current manifests rather than assuming a library release also upgrades them. Keep historical changelog entries, clearly labeled version examples, and the next release's `Unreleased` heading intact. Complete these edits before the release commit and tag so the npm tarball contains the corrected READMEs; a later Git commit does not update an already-published package.
+
 ## 3. Prepare A Release
 
 Run the interactive release script from a clean `main` branch:
@@ -51,7 +53,7 @@ Run the interactive release script from a clean `main` branch:
 npm run release
 ```
 
-The script accepts a stable version such as `1.0.3` or `v1.0.3`. It does not accept prerelease or build metadata versions.
+The script accepts a stable version such as `1.0.3` or `v1.0.3`. It does not accept prerelease or build metadata versions. The `1.0.2` / `1.0.3` versions below are illustrative examples, not the current or next release; substitute the actual previous and target versions when running commands.
 
 The existing release script performs these steps (this is not an ordering requirement for local feature work or application migrations):
 

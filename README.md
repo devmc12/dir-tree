@@ -35,7 +35,7 @@
 
 ## Install
 
-This checkout documents the **unreleased 2.0 API**; package metadata still identifies 1.0.5. Do not assume the published npm package includes these changes. Read the [migration guide](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md) before upgrading.
+This README documents the **2.0 API**, available in the published npm package starting with **2.0.0**. If you are upgrading from 1.x, read the [migration guide](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md) for breaking changes and updated usage.
 
 ```bash
 npm install @devmc12/dir-tree
