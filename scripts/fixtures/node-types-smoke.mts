@@ -20,6 +20,8 @@ import {
 } from '@devmc12/dir-tree/ascii';
 import {
   createAnnotationDiffResult,
+  createManualAnnotationDiffResult,
+  filterAnnotationDiffByExcludedPaths,
   createAnnotationProviderRequest,
   createAnnotatedAsciiTreeRenderOptionsFromConfig,
   createTreeAnnotationPatchesFromProviderResult,
@@ -109,6 +111,10 @@ new RemoteRepositoryFileSystemAdapter({
 new RemoteRepositoryError({ code: 'unknown', message: 'x' });
 new NodeFileSystemAdapter('.');
 createAnnotationDiffResult(annotations, [], new Set([tree.path]));
+filterAnnotationDiffByExcludedPaths(
+  createManualAnnotationDiffResult(annotations, []),
+  new Set()
+);
 createExportedFileTreeJson(tree, annotations);
 createTreeSelectionModel(
   { rootId: 'root', items: { root: { id: 'root' } } },

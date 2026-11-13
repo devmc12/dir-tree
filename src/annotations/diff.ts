@@ -30,6 +30,29 @@ export function createAnnotationDiffResult(
   patches: TreeAnnotationPatch[],
   allowedPaths: Set<string>
 ): AnnotationDiffResult {
+  return buildAnnotationDiff(annotations, patches, 'provider', allowedPaths);
+}
+
+/**
+ * Diffs manual edits, allowing an empty comment to remove an existing annotation
+ * @param annotations Current annotation map
+ * @param patches Host-scoped edits; the last patch for each path wins
+ * @returns Added and updated entries, omitting unchanged edits and reusing existing diff types
+ */
+export function createManualAnnotationDiffResult(
+  annotations: TreeAnnotationMap,
+  patches: TreeAnnotationPatch[]
+): AnnotationDiffResult {
+  return buildAnnotationDiff(annotations, patches, 'manual');
+}
+
+/** Shares normalization and one batch map update while preserving provider empty-comment semantics */
+function buildAnnotationDiff(
+  annotations: TreeAnnotationMap,
+  patches: TreeAnnotationPatch[],
+  mode: 'provider' | 'manual',
+  allowedPaths?: ReadonlySet<string>
+): AnnotationDiffResult {
   const dedupedPatches = new Map<string, TreeAnnotationPatch>();
 
   patches.forEach(patch => {
@@ -46,7 +69,7 @@ export function createAnnotationDiffResult(
     const previousComment =
       getOwnValue(annotations, patch.path)?.comment.trim() ?? '';
 
-    if (!allowedPaths.has(patch.path)) {
+    if (allowedPaths && !allowedPaths.has(patch.path)) {
       skipped.push({
         path: patch.path,
         previousComment,
@@ -56,7 +79,7 @@ export function createAnnotationDiffResult(
       return;
     }
 
-    if (!nextComment) {
+    if (!nextComment && mode === 'provider') {
       skipped.push({
         path: patch.path,
         previousComment,
@@ -67,6 +90,7 @@ export function createAnnotationDiffResult(
     }
 
     if (previousComment === nextComment) {
+      if (mode === 'manual') return;
       skipped.push({
         path: patch.path,
         previousComment,
@@ -94,6 +118,31 @@ export function createAnnotationDiffResult(
     applyPatches,
     baseAnnotations: annotations,
     nextAnnotations: applyTreeAnnotationPatches(annotations, applyPatches),
+  };
+}
+
+/**
+ * Removes unchecked actionable paths in one pass and computes the result map once
+ * @param diff Existing diff including read-only skipped entries
+ * @param excludedPaths Paths the user has excluded from application
+ * @returns Filtered changes, preserving skipped diagnostics and the original base map
+ */
+export function filterAnnotationDiffByExcludedPaths(
+  diff: AnnotationDiffResult,
+  excludedPaths: ReadonlySet<string>
+): AnnotationDiffResult {
+  if (!excludedPaths.size) return diff;
+  const isSelected = ({ path }: { path: string }) => !excludedPaths.has(path);
+  const applyPatches = diff.applyPatches.filter(isSelected);
+  return {
+    ...diff,
+    added: diff.added.filter(isSelected),
+    updated: diff.updated.filter(isSelected),
+    applyPatches,
+    nextAnnotations: applyTreeAnnotationPatches(
+      diff.baseAnnotations,
+      applyPatches
+    ),
   };
 }
 

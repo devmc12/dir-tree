@@ -49,6 +49,8 @@ export {
   applyTreeAnnotationPatch,
   applyTreeAnnotationPatches,
   createAnnotationDiffResult,
+  createManualAnnotationDiffResult,
+  filterAnnotationDiffByExcludedPaths,
   createAnnotationProviderRequest,
   createAnnotatedAsciiTreeRenderOptionsFromConfig,
   createEditedAsciiAnnotationDiff,

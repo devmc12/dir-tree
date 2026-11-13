@@ -326,6 +326,10 @@ const parsed = parseImportedFileTreeJson(json);
 
 ## Annotations
 
+`createManualAnnotationDiffResult(annotations, patches)` uses the existing `AnnotationDiffResult` shape for manual edits. Empty comments remove an existing annotation, unchanged edits are omitted, and the last patch for each path wins. The host supplies the permitted scope. `createAnnotationDiffResult(annotations, patches, allowedPaths)` keeps its existing provider behavior: empty comments are skipped and scope checks still apply.
+
+Use `filterAnnotationDiffByExcludedPaths(diff, excludedPaths)` to apply a batch of checkbox exclusions. It filters actionable entries and computes the resulting annotation map once, while preserving read-only skipped diagnostics. Both helpers are pure and do not own an AI request, dialog selection or project state.
+
 ```ts
 import {
   applyTreeAnnotationPatches,

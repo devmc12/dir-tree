@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add manual annotation diff and batched exclusion helpers while preserving provider empty-comment behavior
+
 - Add tree comparison and reusable path-and-kind state filtering, without guessing rename or move identities
 
 - Add baseline-aware edited ASCII parsing, preserving real filename punctuation and reporting non-reversible custom labels without changing external text import

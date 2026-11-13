@@ -20,6 +20,8 @@ export {
 } from './ascii';
 export {
   createAnnotationDiffResult,
+  createManualAnnotationDiffResult,
+  filterAnnotationDiffByExcludedPaths,
   createEditedAsciiAnnotationDiff,
   removeAnnotationDiffEntry,
 } from './diff';
