@@ -60,6 +60,7 @@ const requiredExports = [
   [node, 'NodeFileSystemAdapter'],
   [parser, 'parseImportedTreeText'],
   [selection, 'createTreeSelectionModel'],
+  [selection, 'setTreeSelection'],
   [transfer, 'createExportedFileTreeJson'],
   [tree, 'createFileTreeNode'],
 ];
@@ -97,6 +98,7 @@ for (const [moduleExports, exportName] of [
   [commonJsModules[5], 'NodeFileSystemAdapter'],
   [commonJsModules[6], 'parseImportedTreeText'],
   [commonJsModules[7], 'createTreeSelectionModel'],
+  [commonJsModules[7], 'setTreeSelection'],
   [commonJsModules[8], 'createExportedFileTreeJson'],
   [commonJsModules[9], 'createFileTreeNode'],
 ]) {

@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add batched cascading selection and opt-in selectable roots, deduplicating overlapping subtree traversals
+
 ## 2.0.0
 
 - Add optional per-read `onTiming` reports for source preparation, tree processing, and measured total duration across built-in adapters, isolating synchronous timing callback failures from successful reads

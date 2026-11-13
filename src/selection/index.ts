@@ -14,6 +14,8 @@ export interface TreeSelectionItem {
 
 export interface TreeSelectionData {
   rootId: string;
+  /** Whether the root represents a selectable node rather than a virtual container */
+  rootSelectable?: boolean;
   items: Record<string, TreeSelectionItem>;
   selectableIds?: Set<string>;
 }
@@ -34,13 +36,18 @@ export function createTreeSelectionModel(
   data: TreeSelectionData,
   selectedIds: string[]
 ): TreeSelectionModel {
-  const normalizedSelectedIds = normalizeTreeSelectedIds(data, selectedIds);
-  const selectedIdSet = new Set(normalizedSelectedIds);
+  const selectionStateById = createSelectionStateById(
+    data,
+    new Set(getTreeItemIdsWithDescendants(data, selectedIds))
+  );
+  const normalizedSelectedIds = collectTreeItemIds(data).filter(
+    id => selectionStateById[id] === 'checked'
+  );
 
   return {
     selectedIds: normalizedSelectedIds,
-    selectedIdSet,
-    selectionStateById: createSelectionStateById(data, selectedIdSet),
+    selectedIdSet: new Set(normalizedSelectedIds),
+    selectionStateById,
   };
 }
 
@@ -93,20 +100,37 @@ export function normalizeTreeSelectedIds(
   data: TreeSelectionData,
   selectedIds: string[]
 ): string[] {
-  const expandedSelectedIdSet = new Set(
-    getTreeItemIdsWithDescendants(
-      data,
-      selectedIds.filter(id => isSelectableTreeItem(data, id))
-    )
-  );
-  const selectionStateById = createSelectionStateById(
-    data,
-    expandedSelectedIdSet
-  );
+  return createTreeSelectionModel(data, selectedIds).selectedIds;
+}
 
-  return collectTreeItemIds(data).filter(
-    id => selectionStateById[id] === 'checked'
+/**
+ * Sets a whole range and its descendants without repeating single-item toggles
+ * @param data Tree selection data, independent of visible rows or expansion
+ * @param selectedIds Current selected ids
+ * @param itemIds Items to check or uncheck, including overlapping subtrees
+ * @param checked Desired state for the whole range
+ * @returns Canonical selection, with parent states derived from remaining leaves
+ */
+export function setTreeSelection(
+  data: TreeSelectionData,
+  selectedIds: string[],
+  itemIds: string[],
+  checked: boolean
+): string[] {
+  const targets = getTreeItemIdsWithDescendants(data, itemIds);
+  if (!targets.length) return selectedIds;
+
+  const next = new Set(getTreeItemIdsWithDescendants(data, selectedIds));
+  for (const id of targets) {
+    if (checked) next.add(id);
+    else next.delete(id);
+  }
+
+  // Keeping a checked ancestor would reselect a descendant explicitly unchecked above
+  const leaves = Array.from(next).filter(
+    id => (getOwnValue(data.items, id)?.children ?? []).length === 0
   );
+  return normalizeTreeSelectedIds(data, leaves);
 }
 
 /**
@@ -120,15 +144,17 @@ export function getTreeItemIdsWithDescendants(
   itemIds: string[]
 ): string[] {
   const collectedIds: string[] = [];
+  const seen = new Set<string>();
   const stack = [...itemIds].reverse();
 
   while (stack.length > 0) {
     const itemId = stack.pop();
 
-    if (!itemId || !isSelectableTreeItem(data, itemId)) {
+    if (!itemId || seen.has(itemId) || !isSelectableTreeItem(data, itemId)) {
       continue;
     }
 
+    seen.add(itemId);
     collectedIds.push(itemId);
 
     const children = getOwnValue(data.items, itemId)?.children ?? [];
@@ -138,7 +164,7 @@ export function getTreeItemIdsWithDescendants(
     }
   }
 
-  return Array.from(new Set(collectedIds));
+  return collectedIds;
 }
 
 /**
@@ -168,7 +194,7 @@ function createSelectionStateById(
 
     const childStates = (item.children ?? []).map(resolveSelectionState);
 
-    if (itemId === data.rootId) {
+    if (itemId === data.rootId && !data.rootSelectable) {
       return childStates.every(childState => childState === 'checked')
         ? 'checked'
         : childStates.some(childState => childState !== 'unchecked')
@@ -244,7 +270,7 @@ function collectTreeItemIds(data: TreeSelectionData): string[] {
  * Finds ancestor ids from the root to the target item
  * @param data Tree selection data with root and items
  * @param targetId Target item id
- * @returns Ancestor ids excluding the root and target
+ * @returns Ancestor ids excluding the target and any non-selectable root
  */
 function getTreeAncestorIds(
   data: TreeSelectionData,
@@ -267,7 +293,9 @@ function getTreeAncestorIds(
     }
 
     const nextAncestorIds =
-      itemId === data.rootId ? ancestorIds : [...ancestorIds, itemId];
+      itemId === data.rootId && !data.rootSelectable
+        ? ancestorIds
+        : [...ancestorIds, itemId];
 
     (item.children ?? []).forEach(childId => {
       stack.push({ itemId: childId, ancestorIds: nextAncestorIds });
@@ -281,13 +309,13 @@ function getTreeAncestorIds(
  * Checks whether an item can participate in selection
  * @param data Tree selection data with optional selectable id set
  * @param itemId Item id to test
- * @returns True when the item exists, is not the root, and is selectable
+ * @returns True when the item exists and is allowed by the root and selection rules
  */
 function isSelectableTreeItem(
   data: TreeSelectionData,
   itemId: string
 ): boolean {
-  if (itemId === data.rootId) {
+  if (itemId === data.rootId && !data.rootSelectable) {
     return false;
   }
 

@@ -348,8 +348,13 @@ These helpers are browser-only. Import them only from browser entry points or co
 import {
   createTreeSelectionModel,
   normalizeTreeSelectedIds,
+  setTreeSelection,
   toggleTreeSelection,
 } from '@devmc12/dir-tree/selection';
 ```
 
 Selection helpers provide a pure cascading checked/indeterminate/unchecked model for tree UIs. They do not depend on React or any specific tree component.
+
+`setTreeSelection(data, selectedIds, itemIds, checked)` checks or unchecks a complete range, including collapsed descendants. Overlapping subtrees are visited once. Parent states are derived from the remaining selected leaves, so unchecking a child cannot be undone by an already selected ancestor. Keep Shift anchors and visible row ordering in the application.
+
+The root is a non-selectable container by default. Set `data.rootSelectable: true` for a real root that should participate in selection. Reuse the same `items` index between interactions; the helpers do not mutate it.
