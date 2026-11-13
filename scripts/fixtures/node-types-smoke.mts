@@ -40,7 +40,11 @@ import {
   setTreeSelection,
 } from '@devmc12/dir-tree/selection';
 import { createExportedFileTreeJson } from '@devmc12/dir-tree/transfer';
-import { createFileTreeNode } from '@devmc12/dir-tree/tree';
+import {
+  compareFileTrees,
+  filterMatchingFileTreeState,
+  createFileTreeNode,
+} from '@devmc12/dir-tree/tree';
 
 /**
  * Date: 2026-11-07
@@ -54,6 +58,10 @@ const tree: FileNode = {
   children: [],
 };
 const annotations: TreeAnnotationMap = {};
+filterMatchingFileTreeState(
+  annotations,
+  compareFileTrees(tree, tree).matchingPaths
+);
 const retentionMode: TreeAnnotationRetentionMode = 'matching-paths';
 const reader = new FileSystemReader(new InMemoryFileTreeAdapter(tree));
 const parsed = parseImportedTreeText('project\n└── src', 'project');

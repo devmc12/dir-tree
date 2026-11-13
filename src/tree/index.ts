@@ -14,6 +14,8 @@ export type {
   FileTreeVisibilityMode,
   FileTreeVisibilityMap,
 } from './types';
+export { compareFileTrees, filterMatchingFileTreeState } from './compare';
+export type { FileTreeChange, FileTreeComparison } from './compare';
 export {
   cloneFileNode,
   createPreparedFileTree,

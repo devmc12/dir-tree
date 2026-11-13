@@ -271,6 +271,10 @@ Use `createAsciiTreeOptionsFromConfig` when mapping UI or persisted settings to 
 
 ## Tree Operations
 
+`compareFileTrees(before, after)` returns `{ changes, matchingPaths }`. A change is `{ path, kind: 'added' | 'removed' | 'changed' }`; changed nodes include kind, size, modified time or retained sibling order changes. Insertions and removals are reported on the affected nodes, without duplicating them on every ancestor. Renames and moves are removals plus additions.
+
+Both indexes are built once per comparison (or reused from existing tree metadata). Reuse `matchingPaths` with `filterMatchingFileTreeState(state, matchingPaths)` for annotation and visibility maps; only paths with the same node kind survive. The host decides whether to merge incoming state, confirm changes, replace a focused subtree or preserve hidden nodes.
+
 ```ts
 import {
   cloneFileNode,

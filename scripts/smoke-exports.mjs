@@ -64,6 +64,8 @@ const requiredExports = [
   [selection, 'setTreeSelection'],
   [transfer, 'createExportedFileTreeJson'],
   [tree, 'createFileTreeNode'],
+  [tree, 'compareFileTrees'],
+  [tree, 'filterMatchingFileTreeState'],
 ];
 
 for (const [moduleExports, exportName] of requiredExports) {
@@ -103,6 +105,8 @@ for (const [moduleExports, exportName] of [
   [commonJsModules[7], 'setTreeSelection'],
   [commonJsModules[8], 'createExportedFileTreeJson'],
   [commonJsModules[9], 'createFileTreeNode'],
+  [commonJsModules[9], 'compareFileTrees'],
+  [commonJsModules[9], 'filterMatchingFileTreeState'],
 ]) {
   if (!(exportName in moduleExports)) {
     throw new Error(`Missing CommonJS package export: ${exportName}`);

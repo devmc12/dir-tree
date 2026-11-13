@@ -130,8 +130,12 @@ export {
   removeFileTreeNode,
   removeFileTreeNodes,
   renameFileTreeNode,
+  compareFileTrees,
+  filterMatchingFileTreeState,
 } from './tree';
 export type {
+  FileTreeChange,
+  FileTreeComparison,
   FileNodeLocation,
   FileTreeCreateOptions,
   FileTreeCreateResult,
