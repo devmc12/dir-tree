@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add baseline-aware edited ASCII parsing, preserving real filename punctuation and reporting non-reversible custom labels without changing external text import
+
 - Add batched cascading selection and opt-in selectable roots, deduplicating overlapping subtree traversals
 
 ## 2.0.0

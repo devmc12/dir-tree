@@ -98,11 +98,14 @@ export {
   parseImportedTreeXml,
   parseImportedTreeJson,
   parseImportedTreeText,
+  parseEditedAsciiTree,
 } from './parser';
 export type {
   ImportedTreeFormat,
   ImportedTreeParseOptions,
   ParsedImportedTree,
+  EditedAsciiTreeParseOptions,
+  ParsedEditedAsciiTree,
 } from './parser';
 export {
   createExportedFileTreeJson,

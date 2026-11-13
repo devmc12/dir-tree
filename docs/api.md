@@ -231,6 +231,20 @@ Supported formats:
 
 ## ASCII Rendering
 
+For edits to text that your application rendered, use `parseEditedAsciiTree` from the parser entry with the **original** `renderAsciiTreeLines` output and syntax:
+
+```ts
+const parsed = parseEditedAsciiTree(editedText, renderedRoot, {
+  lines: originalLines,
+  syntax: originalRenderOptions,
+  commentTemplate: '# %comment%',
+});
+```
+
+This returns the usual `tree` and `annotations`, plus `matchedPaths` for baseline nodes still recognized. It removes only evidenced display decorations (metadata, line numbers, connectors and synthetic root labels), retains known node kinds, and leaves real bracketed filenames intact. An unrecognizable edited custom label throws `FileTreeError` with its line number instead of guessing. Without baseline lines, parsing uses the ordinary text heuristics.
+
+Keep project identity, draft revision checks, focused-scope replacement, hidden-node retention, review and undo in the host. Use `parseAnnotatedAsciiTree` for annotation-only edits and `parseImportedTreeText` for arbitrary external text; their existing contracts are unchanged.
+
 A leading `.` in imported tree text is a display marker and uses the supplied fallback root name. Dot-mode rendered output includes a synthetic outer root; importing it preserves that displayed layer. Ordinary child names `.` and `..` remain invalid. These text formats use filename heuristics; use JSON transfer when exact node kinds, metadata, annotations, and visibility must be retained.
 
 ```ts

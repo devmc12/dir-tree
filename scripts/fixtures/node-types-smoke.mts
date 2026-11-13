@@ -31,8 +31,14 @@ import {
   type TreeAnnotationRetentionMode,
 } from '@devmc12/dir-tree/annotations';
 import { NodeFileSystemAdapter } from '@devmc12/dir-tree/node';
-import { parseImportedTreeText } from '@devmc12/dir-tree/parser';
-import { createTreeSelectionModel } from '@devmc12/dir-tree/selection';
+import {
+  parseEditedAsciiTree,
+  parseImportedTreeText,
+} from '@devmc12/dir-tree/parser';
+import {
+  createTreeSelectionModel,
+  setTreeSelection,
+} from '@devmc12/dir-tree/selection';
 import { createExportedFileTreeJson } from '@devmc12/dir-tree/transfer';
 import { createFileTreeNode } from '@devmc12/dir-tree/tree';
 
@@ -51,6 +57,17 @@ const annotations: TreeAnnotationMap = {};
 const retentionMode: TreeAnnotationRetentionMode = 'matching-paths';
 const reader = new FileSystemReader(new InMemoryFileTreeAdapter(tree));
 const parsed = parseImportedTreeText('project\n└── src', 'project');
+parseEditedAsciiTree('project/', tree, { lines: renderAsciiTreeLines(tree) });
+setTreeSelection(
+  {
+    rootId: 'project',
+    rootSelectable: true,
+    items: { project: { id: 'project' } },
+  },
+  [],
+  ['project'],
+  true
+);
 const created = createFileTreeNode(parsed.tree, parsed.tree.path, {
   kind: 'file',
   name: 'README.md',
