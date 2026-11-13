@@ -67,6 +67,7 @@ const requiredExports = [
   [transfer, 'createExportedFileTreeJson'],
   [tree, 'createFileTreeNode'],
   [tree, 'compareFileTrees'],
+  [tree, 'createFileTreeHiddenLookup'],
   [tree, 'filterMatchingFileTreeState'],
 ];
 
@@ -110,6 +111,7 @@ for (const [moduleExports, exportName] of [
   [commonJsModules[8], 'createExportedFileTreeJson'],
   [commonJsModules[9], 'createFileTreeNode'],
   [commonJsModules[9], 'compareFileTrees'],
+  [commonJsModules[9], 'createFileTreeHiddenLookup'],
   [commonJsModules[9], 'filterMatchingFileTreeState'],
 ]) {
   if (!(exportName in moduleExports)) {

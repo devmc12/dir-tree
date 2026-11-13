@@ -42,6 +42,7 @@ export {
   filterFileTreeVisibilityByPaths,
   remapFileTreeVisibility,
   createVisibleFileTree,
+  createFileTreeHiddenLookup,
 } from './visibility';
 export {
   normalizeExpandedFileTreeItems,

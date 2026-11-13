@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add one-pass inherited visibility lookup and reuse it in the browser playground without changing its controls or exports
+
 - Add manual annotation diff and batched exclusion helpers while preserving provider empty-comment behavior
 
 - Add tree comparison and reusable path-and-kind state filtering, without guessing rename or move identities

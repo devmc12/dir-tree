@@ -13,12 +13,18 @@ import type { ReaderState } from './state';
 import type { ReaderTreeRow } from './types';
 import type { readerReducer } from './state';
 
+/**
+ * Date: 2026-06-15
+ * Desc: Shares playground state, derived values and UI actions
+ */
+
 export interface ReaderDerivedState {
   annotationCount: number;
   asciiLines: AsciiTreeLine[];
   asciiText: string;
   copy: PlaygroundCopy;
   hasPendingReadOptions: boolean;
+  hiddenLookup: Record<string, boolean>;
   rows: ReaderTreeRow[];
   selectedNode: FileNode;
   stats: FileTreeReadStats;

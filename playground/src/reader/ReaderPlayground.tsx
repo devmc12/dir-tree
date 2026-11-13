@@ -44,6 +44,7 @@ import {
   type DroppedFileTreeSource,
 } from '@devmc12/dir-tree/browser';
 import {
+  createFileTreeHiddenLookup,
   filterFileTreeVisibilityByPaths,
   remapFileTreeVisibility,
   type FileTreeVisibilityMap,
@@ -71,6 +72,11 @@ import {
   downloadPlainText,
   flattenVisibleFileTree,
 } from './utils';
+
+/**
+ * Date: 2026-06-15
+ * Desc: Orchestrates playground sources and UI using the public headless API
+ */
 
 function createStatus(text: string, tone: ReaderStatus['tone']): ReaderStatus {
   return { text, tone };
@@ -108,6 +114,10 @@ export function ReaderPlayground(): ReactNode {
   const rows = useMemo(
     () => flattenVisibleFileTree(state.tree, state.expandedPaths),
     [state.expandedPaths, state.tree]
+  );
+  const hiddenLookup = useMemo(
+    () => createFileTreeHiddenLookup(state.tree, state.visibility),
+    [state.tree, state.visibility]
   );
   const selectedNode =
     useMemo(
@@ -699,6 +709,7 @@ export function ReaderPlayground(): ReactNode {
           asciiText,
           copy,
           hasPendingReadOptions,
+          hiddenLookup,
           rows,
           selectedNode,
           stats,

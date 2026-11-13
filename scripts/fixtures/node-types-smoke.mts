@@ -44,6 +44,7 @@ import {
 import { createExportedFileTreeJson } from '@devmc12/dir-tree/transfer';
 import {
   compareFileTrees,
+  createFileTreeHiddenLookup,
   filterMatchingFileTreeState,
   createFileTreeNode,
 } from '@devmc12/dir-tree/tree';
@@ -60,6 +61,7 @@ const tree: FileNode = {
   children: [],
 };
 const annotations: TreeAnnotationMap = {};
+createFileTreeHiddenLookup(tree, {});
 filterMatchingFileTreeState(
   annotations,
   compareFileTrees(tree, tree).matchingPaths

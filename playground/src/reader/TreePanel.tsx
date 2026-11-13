@@ -24,19 +24,16 @@ import {
   type MouseEvent,
 } from 'react';
 import type { FileNode } from '@devmc12/dir-tree';
-import type {
-  FileTreeVisibilityMap,
-  FileTreeVisibilityMode,
-} from '@devmc12/dir-tree/tree';
+import type { FileTreeVisibilityMode } from '@devmc12/dir-tree/tree';
 
 import { useReaderActions, useReaderContext } from './context';
 import styles from './Reader.module.css';
 import { formatBytes } from './utils';
 
-interface TreeVisibilityState {
-  directMode: FileTreeVisibilityMode | null;
-  isMuted: boolean;
-}
+/**
+ * Date: 2026-06-15
+ * Desc: Renders editable playground rows and host-specific visibility styling
+ */
 
 export function TreePanel() {
   const { derived, state } = useReaderContext();
@@ -104,14 +101,21 @@ function TreeRow({ depth, node }: { depth: number; node: FileNode }) {
   const isEditingAnnotation = state.editingAnnotationPath === node.path;
   const isRenaming = state.renamingPath === node.path;
   const isCreating = state.createPath === node.path;
-  const visibilityState = getTreeVisibilityState(node.path, state.visibility);
+  const directMode = Object.prototype.hasOwnProperty.call(
+    state.visibility,
+    node.path
+  )
+    ? state.visibility[node.path]!
+    : null;
+  // Keep the playground's existing muted style for folders with hidden children
+  const isMuted = Boolean(directMode) || derived.hiddenLookup[node.path];
   const rowStyle = {
     '--depth': depth,
   } as CSSProperties;
   const rowClassName = [
     styles.treeRow,
     isSelected ? styles.selectedRow : '',
-    visibilityState.isMuted ? styles.mutedRow : '',
+    isMuted ? styles.mutedRow : '',
     isCreating || isEditingAnnotation || isRenaming ? styles.rowHasEditor : '',
     annotation?.comment ? styles.rowHasAnnotation : '',
   ]
@@ -225,7 +229,7 @@ function TreeRow({ depth, node }: { depth: number; node: FileNode }) {
           )}
         </span>
         <TreeRowActions
-          directMode={visibilityState.directMode}
+          directMode={directMode}
           isDirectory={isDirectory}
           isRoot={node.path === state.tree.path}
           node={node}
@@ -467,28 +471,4 @@ function TreeRowAnnotation({
       </button>
     </div>
   );
-}
-
-function getTreeVisibilityState(
-  path: string,
-  visibility: FileTreeVisibilityMap
-): TreeVisibilityState {
-  const directMode = visibility[path] ?? null;
-
-  if (directMode) {
-    return { directMode, isMuted: true };
-  }
-
-  const segments = path.split('/');
-
-  for (let index = segments.length - 1; index > 0; index -= 1) {
-    const ancestorPath = segments.slice(0, index).join('/');
-    const ancestorMode = visibility[ancestorPath];
-
-    if (ancestorMode === 'hidden' || ancestorMode === 'children-hidden') {
-      return { directMode, isMuted: true };
-    }
-  }
-
-  return { directMode, isMuted: false };
 }

@@ -95,3 +95,30 @@ export function createVisibleFileTree(
 
   return filterVisibleNode(root);
 }
+
+/**
+ * Resolves effective node visibility in one traversal, including hidden ancestors
+ * @param root Complete tree, independent of expanded rows and focused views
+ * @param visibility Explicit hidden and children-hidden rules
+ * @returns Whether each node is omitted from output; children-hidden keeps the folder itself visible
+ */
+export function createFileTreeHiddenLookup(
+  root: FileNode,
+  visibility: FileTreeVisibilityMap
+): Record<string, boolean> {
+  const hidden = createPathMap<boolean>();
+  const stack = [{ node: root, ancestorHidden: false }];
+  while (stack.length) {
+    const { node, ancestorHidden } = stack.pop()!;
+    const mode = getOwnValue(visibility, node.path);
+    hidden[node.path] = ancestorHidden || mode === 'hidden';
+    const childrenHidden = hidden[node.path] || mode === 'children-hidden';
+    for (let index = (node.children?.length ?? 0) - 1; index >= 0; index--) {
+      stack.push({
+        node: node.children![index]!,
+        ancestorHidden: childrenHidden,
+      });
+    }
+  }
+  return hidden;
+}

@@ -271,6 +271,8 @@ Use `createAsciiTreeOptionsFromConfig` when mapping UI or persisted settings to 
 
 ## Tree Operations
 
+`createFileTreeHiddenLookup(root, visibility)` computes a path-to-boolean map in one tree traversal. `hidden` omits the node and descendants; `children-hidden` omits descendants while keeping that folder visible. An ancestor rule cannot be undone by a descendant setting. Expanded rows and UI colors are host concerns, so a host may still style a visible folder with hidden children differently.
+
 `compareFileTrees(before, after)` returns `{ changes, matchingPaths }`. A change is `{ path, kind: 'added' | 'removed' | 'changed' }`; changed nodes include kind, size, modified time or retained sibling order changes. Insertions and removals are reported on the affected nodes, without duplicating them on every ancestor. Renames and moves are removals plus additions.
 
 Both indexes are built once per comparison (or reused from existing tree metadata). Reuse `matchingPaths` with `filterMatchingFileTreeState(state, matchingPaths)` for annotation and visibility maps; only paths with the same node kind survive. The host decides whether to merge incoming state, confirm changes, replace a focused subtree or preserve hidden nodes.

@@ -126,6 +126,7 @@ export {
   createFocusedFileTree,
   createPreparedFileTree,
   createVisibleFileTree,
+  createFileTreeHiddenLookup,
   findFileNodeLocation,
   moveFileTreeNode,
   normalizeExpandedFileTreeItems,
