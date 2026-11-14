@@ -35,9 +35,9 @@
 
 ## Install
 
-This README documents the **2.0 API**, available in the published npm package starting with **2.0.0**. If you are upgrading from 1.x, read the [migration guide](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md) for breaking changes and updated usage.
+This README documents **2.1.0**, an additive update to the 2.0 API. Existing 2.0.0 integrations need no migration. If you are upgrading from 1.x, read the [migration guide](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md) for breaking changes and updated usage.
 
-The repository also contains additive **Unreleased** helpers for edited rendered text, batched selection, tree comparison, manual annotation review and inherited visibility. They are not included in npm **2.0.0** yet. See the [API availability and boundaries](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#unreleased-additions-and-boundaries) before adopting them; existing 2.0.0 integrations do not need migration for these additions.
+The edited rendered-text parser, batched selection, tree comparison, manual annotation review and inherited visibility helpers require **2.1.0 or newer**. See the [API availability and boundaries](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#api-availability-and-boundaries) for their responsibilities and import paths. The package remains UI-free; project storage, undo history and AI requests belong to the host application.
 
 ```bash
 npm install @devmc12/dir-tree
@@ -332,7 +332,7 @@ Public entry points are listed in `package.json#exports`. Common reader APIs are
 
 ## Playground
 
-The two playgrounds use the 2.0 API. Development uses source aliases; migration verification also checks temporary consumers installed from the packed library without those aliases. Native picker permissions and desktop directory dragging still require manual browser checks.
+The two playgrounds consume the current public package API. The browser playground reuses the 2.1 visibility lookup without adding controls or changing exports. Development uses source aliases; package verification also checks temporary consumers installed from the packed library without those aliases. Native picker permissions and desktop directory dragging still require manual browser checks.
 
 The GitHub repository includes `playground/`, a small Vite React example that demonstrates the public `@devmc12/dir-tree` imports through local Vite and TypeScript aliases. It is a minimal reference, not a full app. For the complete application, see [dir-tree.com](https://dir-tree.com/).
 

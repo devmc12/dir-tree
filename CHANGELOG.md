@@ -4,19 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- Preserve 2.0.0 canonical selection states when descendants are not selectable
-- Keep rendered metadata separate from names when moving edited nodes across depths, preserve literal label punctuation, and index repeated labels/decorations instead of scanning the whole baseline for each row
-- Document unreleased API availability, host/library responsibilities and focused-root parsing paths
+## 2.1.0
 
-- Add one-pass inherited visibility lookup and reuse it in the browser playground without changing its controls or exports
-
-- Add manual annotation diff and batched exclusion helpers while preserving provider empty-comment behavior
-
-- Add tree comparison and reusable path-and-kind state filtering, without guessing rename or move identities
-
-- Add baseline-aware edited ASCII parsing, preserving real filename punctuation and reporting non-reversible custom labels without changing external text import
-
-- Add batched cascading selection and opt-in selectable roots, deduplicating overlapping subtree traversals
+- Add `parseEditedAsciiTree` for baseline-aware edits to rendered text, keeping filename punctuation, metadata, line numbers, custom connectors and focused-root paths separate from host draft state
+- Add `setTreeSelection` for batched cascading selection and optional `rootSelectable`, deduplicating overlapping subtrees while preserving 2.0.0 default and restricted-selection behavior
+- Add `compareFileTrees` and `filterMatchingFileTreeState` for structural comparison and path-and-kind state retention, without guessing rename or move identities
+- Add `createManualAnnotationDiffResult` and `filterAnnotationDiffByExcludedPaths` for manual comment deletion and batch review selection; provider empty-comment behavior stays unchanged
+- Add `createFileTreeHiddenLookup` for one-pass inherited visibility and reuse it in the browser playground without changing its controls or export behavior
+- Index rendered labels and literal decorations to avoid scanning the entire baseline for each edited row; cover combined display settings and repeated filenames with regression tests
+- Document public API availability, host/library boundaries and examples; retain all 2.0.0 entry points and the existing JSON transfer format
 
 ## 2.0.0
 

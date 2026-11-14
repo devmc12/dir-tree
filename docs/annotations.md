@@ -110,6 +110,23 @@ const nextAnnotations = applyTreeAnnotationPatches(
 );
 ```
 
+### Manual Edits And Batch Selection (2.1.0)
+
+Use `createManualAnnotationDiffResult` for user edits. Unlike provider suggestions, an empty manual comment removes an existing annotation. Unchanged edits are omitted and the last patch for each path wins. The host must limit edits to its intended scope before creating the diff.
+
+```ts
+import {
+  createManualAnnotationDiffResult,
+  filterAnnotationDiffByExcludedPaths,
+} from '@devmc12/dir-tree/annotations';
+
+const diff = createManualAnnotationDiffResult(annotations, manualPatches);
+const accepted = filterAnnotationDiffByExcludedPaths(diff, uncheckedPaths);
+const nextAnnotations = accepted.nextAnnotations;
+```
+
+`uncheckedPaths` is a `ReadonlySet<string>`. Batch filtering retains skipped diagnostics and computes the resulting map once, rather than copying the map for every unchecked row. Checkbox state, review dialogs and undo remain host responsibilities. Existing provider diffs still skip empty comments instead of deleting annotations.
+
 ## Retention After Re-read
 
 When a source is refreshed, a host application can reset annotations or retain only annotations whose paths still exist in the new tree.

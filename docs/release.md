@@ -67,6 +67,18 @@ The existing release script performs these steps (this is not an ordering requir
 
 Do not tag the feature commit before the version update. The release workflow checks out the tag and requires it to contain the matching `package.json#version`.
 
+### Already-prepared Version Snapshot
+
+If the package version, lockfile, versioned changelog and documentation have already been committed for a release, do not run the version-bumping script again for that same version. Verify that reviewed commit and continue from tagging when publication is authorized:
+
+```bash
+# Replace the example version and SHA with the prepared release snapshot
+git tag -a v2.1.0 -m "Release v2.1.0" <reviewed-release-commit-sha>
+git push --atomic origin main refs/tags/v2.1.0
+```
+
+Before pushing, check that local `main` still points to the reviewed release commit, the worktree is clean, and the target tag/version has not been published. Publish the GitHub Release for that exact tag to trigger npm publishing; pushing commits or tags alone does not trigger this workflow. A prepared local commit is not authorization to tag, push, publish or deploy.
+
 ### Preconditions
 
 The script stops before modifying files unless all of these conditions are true:

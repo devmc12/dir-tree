@@ -33,6 +33,7 @@ const runtimeFixtures = [
   'esm-smoke.mjs',
   'cjs-smoke.cjs',
   'cross-entry-smoke.mjs',
+  'additive-api-smoke.mjs',
 ];
 const nodeFixtures = ['node-types-smoke.mts', 'node-types-smoke.cts'];
 const browserFixture = 'browser-types-smoke.mts';

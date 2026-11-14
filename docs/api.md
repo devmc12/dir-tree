@@ -1,20 +1,20 @@
 # API Reference
 
-This reference describes the 2.0 API for `@devmc12/dir-tree`. The package is headless: all APIs in `src/` are UI-free and do not depend on React, Next.js, Zustand, toast libraries, analytics, or application i18n. See the [1.x to 2.0 migration guide](migrate-v2.md) for changes to existing integrations.
+This reference describes the 2.1 API for `@devmc12/dir-tree`. The package is headless: all APIs in `src/` are UI-free and do not depend on React, Next.js, Zustand, toast libraries, analytics, or application i18n. See the [1.x to 2.0 migration guide](migrate-v2.md) when upgrading from 1.x; 2.0.0 consumers do not need migration for 2.1.0.
 
-## Unreleased Additions And Boundaries
+## API Availability And Boundaries
 
-The helpers marked **Unreleased** below are on the repository's main branch but are not in the published **2.0.0** package. They add capabilities without removing or changing the signatures of the 2.0.0 API. The original JSON transfer format, external text import heuristics, provider empty-comment behavior and default non-selectable root remain unchanged. Consumers of the new helpers must upgrade after the next library release; an unchanged 2.0.0 lockfile cannot provide these exports.
+The helpers marked **2.1.0** add capabilities without removing or changing the signatures of the 2.0.0 API. The original JSON transfer format, external text import heuristics, provider empty-comment behavior and default non-selectable root remain unchanged. Consumers using these additions need a dependency and lockfile resolving to 2.1.0 or newer; an unchanged 2.0.0 lockfile cannot provide these exports.
 
 | Capability | Availability | Library responsibility | Host responsibility |
 | --- | --- | --- | --- |
 | Annotation retention and Markdown wrapping | 2.0.0 | Filter a map or format text | Decide when to retain annotations and where to copy/export |
 | Dropped source detection | 2.0.0, `/browser` only | Identify directory access, ZIP and tree documents | Project-file recognition, source switching, prompts and errors |
-| Batched selection and `rootSelectable` | Unreleased | Cascading selection and parent states | Shift anchors, visible rows and checkboxes |
-| `parseEditedAsciiTree` | Unreleased | Reverse rendered labels using the original baseline | Draft revisions, focused-scope replacement, hidden-node retention and undo |
-| `compareFileTrees` and `filterMatchingFileTreeState` | Unreleased | Compare structural data and filter path-and-kind matches | Decide which incoming state to merge and confirm source updates |
-| Manual annotation diff and batch exclusions | Unreleased | Normalize patches, calculate differences and filter them | Permitted scope, review selection and AI request lifecycle |
-| `createFileTreeHiddenLookup` | Unreleased | Resolve inherited output visibility | Muted row colors, layout and expansion |
+| Batched selection and `rootSelectable` | 2.1.0 | Cascading selection and parent states | Shift anchors, visible rows and checkboxes |
+| `parseEditedAsciiTree` | 2.1.0 | Reverse rendered labels using the original baseline | Draft revisions, focused-scope replacement, hidden-node retention and undo |
+| `compareFileTrees` and `filterMatchingFileTreeState` | 2.1.0 | Compare structural data and filter path-and-kind matches | Decide which incoming state to merge and confirm source updates |
+| Manual annotation diff and batch exclusions | 2.1.0 | Normalize patches, calculate differences and filter them | Permitted scope, review selection and AI request lifecycle |
+| `createFileTreeHiddenLookup` | 2.1.0 | Resolve inherited output visibility | Muted row colors, layout and expansion |
 
 These functions do not own project storage, browser history, application versions or network requests. The playground consumes the same public helpers and keeps its existing controls and export behavior.
 
