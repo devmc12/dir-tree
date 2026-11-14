@@ -78,6 +78,23 @@ describe('batch selection', () => {
     ).toEqual(['__proto__']);
   });
 
+  it('derives parent state from the canonical selection when children are not selectable', () => {
+    const data = fixture();
+    data.selectableIds = new Set(['folder', 'empty']);
+    const model = createTreeSelectionModel(data, ['folder', 'empty']);
+    expect(model.selectedIds).toEqual(['empty']);
+    expect(model.selectionStateById.folder).toBe('unchecked');
+    expect(createTreeSelectionModel(data, model.selectedIds)).toEqual(model);
+
+    data.selectableIds.add('a');
+    const partial = createTreeSelectionModel(data, ['folder']);
+    expect(partial.selectedIds).toEqual(['a']);
+    expect(partial.selectionStateById.folder).toBe('indeterminate');
+    expect(createTreeSelectionModel(data, partial.selectedIds)).toEqual(
+      partial
+    );
+  });
+
   it('visits overlapping subtrees once rather than once per selected ancestor', () => {
     const data = fixture();
     const children = Array.from({ length: 10000 }, (_, i) => String(i));

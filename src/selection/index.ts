@@ -215,9 +215,10 @@ function createSelectionStateById(
     const hasCheckedChild = childStates.some(
       childState => childState !== 'unchecked'
     );
+    // A requested parent is not selected when none of its descendants can be selected
     const selectionState = areAllChildrenChecked
       ? 'checked'
-      : selectedIdSet.has(itemId) || hasCheckedChild
+      : hasCheckedChild
         ? 'indeterminate'
         : 'unchecked';
 
