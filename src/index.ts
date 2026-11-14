@@ -108,6 +108,7 @@ export type {
   ParsedImportedTree,
   EditedAsciiTreeParseOptions,
   ParsedEditedAsciiTree,
+  EditedAsciiTreeRename,
 } from './parser';
 export {
   createExportedFileTreeJson,

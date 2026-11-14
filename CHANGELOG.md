@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add opt-in `detectRenames` to edited ASCII parsing, reporting conservative root and same-parent rename pairs while preserving baseline node kinds; default parser and exact-path comparison contracts stay unchanged
+
 ## 2.1.0
 
 - Add `parseEditedAsciiTree` for baseline-aware edits to rendered text, keeping filename punctuation, metadata, line numbers, custom connectors and focused-root paths separate from host draft state

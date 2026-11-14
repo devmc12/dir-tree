@@ -233,6 +233,8 @@ const { branches, defaultBranch, ref, path } =
 
 ## 解析与渲染
 
+尚未发布的 `parseEditedAsciiTree(..., { lines, detectRenames: true })` 可选项会返回明确的同父级重命名对应关系，路径使用原始完整作用范围。审核确认、隐藏节点保留、持久化和撤销仍由宿主负责；默认解析及 `compareFileTrees` 行为不变。详见 [API 文档](docs/api.md#ascii-rendering)。
+
 把导入的 JSON、XML、HTML、Markdown 列表、Markdown 文档或 ASCII 树文本解析为 `FileNode` 树，再渲染回 ASCII。
 
 ```ts

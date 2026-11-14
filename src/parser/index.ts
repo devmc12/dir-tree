@@ -8,6 +8,7 @@ export {
   parseImportedMarkdownDocumentTreeText,
 } from './imported';
 export { parseEditedAsciiTree } from './edited';
+export type { EditedAsciiTreeRename } from './edited-renames';
 export type {
   EditedAsciiTreeParseOptions,
   ParsedEditedAsciiTree,

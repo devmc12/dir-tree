@@ -9,6 +9,10 @@ import {
   type ImportedTreeEntry,
 } from './entries';
 import type { ParsedImportedTree } from './types';
+import {
+  detectEditedRenames,
+  type EditedAsciiTreeRename,
+} from './edited-renames';
 
 /**
  * Date: 2026-11-14
@@ -16,6 +20,8 @@ import type { ParsedImportedTree } from './types';
  */
 
 export interface EditedAsciiTreeParseOptions {
+  /** Opt in to conservative root and same-parent rename recognition */
+  detectRenames?: boolean;
   lines?: readonly AsciiTreeLine[];
   syntax?: Pick<
     AsciiTreeOptions,
@@ -27,12 +33,16 @@ export interface EditedAsciiTreeParseOptions {
 export interface ParsedEditedAsciiTree extends ParsedImportedTree {
   /** Baseline paths whose displayed name and hierarchy matched exactly */
   matchedPaths: Set<string>;
+  /** Present only when rename detection is enabled; paths use the full baseline scope */
+  renames?: EditedAsciiTreeRename[];
 }
 
 interface RenderedLabel {
   line: AsciiTreeLine;
   paths: string[];
   ambiguous: boolean;
+  /** A shared label with differing kinds must be resolved against its parent */
+  kind: FileNode['kind'] | null;
 }
 
 /**
@@ -57,6 +67,7 @@ export function parseEditedAsciiTree(
           : { commentTemplate: options.commentTemplate }),
       }),
       matchedPaths: new Set(),
+      ...(options.detectRenames ? { renames: [] } : {}),
     };
   }
   // Strip generated line numbers only when the baseline provides evidence for them
@@ -80,9 +91,11 @@ export function parseEditedAsciiTree(
       line,
       paths: [],
       ambiguous: false,
+      kind: line.node.kind,
     };
     matching.paths.push(line.path);
     matching.ambiguous ||= matching.line.node.name !== line.node.name;
+    if (matching.kind !== line.node.kind) matching.kind = null;
     byLabel.set(label, matching);
     if (line.isSynthetic) continue;
     const nameAt = label.lastIndexOf(line.node.name);
@@ -103,6 +116,7 @@ export function parseEditedAsciiTree(
   const matchedPaths = new Set<string>();
   const matchedLabels = new Set<string>();
   const entries: ImportedTreeEntry[] = [];
+  const entryKinds: (FileNode['kind'] | null | undefined)[] = [];
   for (const [index, raw] of text.split(/\r?\n/u).entries()) {
     const { label, level } = splitNormalizedLine(
       normalizeDraftPrefix(raw, options.syntax, numbered)
@@ -165,6 +179,14 @@ export function parseEditedAsciiTree(
       name = nodeLabel.replace(/\/+$/u, '').trim();
       comment = extracted.comment;
     }
+    if (options.detectRenames)
+      entryKinds.push(
+        matched
+          ? matched.kind
+          : nodeLabel.endsWith('/')
+            ? 'directory'
+            : undefined
+      );
     entries.push({
       name,
       label: nodeLabel,
@@ -174,6 +196,7 @@ export function parseEditedAsciiTree(
     });
   }
   if (!options.lines.some(line => line.path === root.path)) {
+    if (options.detectRenames) entryKinds.unshift('directory');
     entries.unshift({
       name: root.name,
       label: root.name + '/',
@@ -204,8 +227,49 @@ export function parseEditedAsciiTree(
     else delete result.children;
     return result;
   }
-  const tree = retainKnownKind(parsed.tree);
-  return { ...parsed, tree, matchedPaths: retainedPaths };
+  let tree = retainKnownKind(parsed.tree);
+  if (!options.detectRenames)
+    return { ...parsed, tree, matchedPaths: retainedPaths };
+  const parsedNodes: FileNode[] = [];
+  const collect = (node: FileNode): void => {
+    parsedNodes.push(node);
+    node.children?.forEach(collect);
+  };
+  collect(tree);
+  // Multiple top-level entries synthesize a root and cannot establish rename identity
+  if (parsedNodes.length !== entries.length)
+    return { ...parsed, tree, matchedPaths: retainedPaths, renames: [] };
+  const knownKinds = new Map<string, FileNode['kind'] | null>();
+  parsedNodes.forEach((node, index) => {
+    const kind = entryKinds[index];
+    if (kind !== undefined) knownKinds.set(node.path, kind);
+  });
+  const detection = detectEditedRenames(
+    tree,
+    root,
+    options.lines,
+    knownKinds,
+    !syntheticRoot &&
+      options.lines.some(
+        line => line.isRoot && !line.isSynthetic && line.path === root.path
+      )
+  );
+  // Only the parsed result is updated; original line nodes remain immutable
+  const retainRenamedKind = (node: FileNode): FileNode => {
+    const kind = detection.kinds.get(node.path) ?? node.kind;
+    const next: FileNode = { ...node, kind };
+    if (kind === 'directory')
+      next.children = (node.children ?? []).map(retainRenamedKind);
+    else delete next.children;
+    return next;
+  };
+  tree = retainRenamedKind(tree);
+  return {
+    ...parsed,
+    tree,
+    matchedPaths: retainedPaths,
+    renames: detection.renames,
+  };
 }
 
 /** Splits only the canonical leading connector, never connector-like text inside a name */

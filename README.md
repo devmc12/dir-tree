@@ -200,6 +200,8 @@ Remote repository helper functions are exported from `@devmc12/dir-tree/adapters
 
 ## Parse And Render
 
+The unreleased `parseEditedAsciiTree(..., { lines, detectRenames: true })` option reports conservative same-parent rename pairs in full baseline coordinates. It leaves confirmation, hidden-node retention, persistence and undo to the host; default parsing and `compareFileTrees` remain unchanged. See [API documentation](docs/api.md#ascii-rendering).
+
 Parse imported JSON, XML, HTML, Markdown list, Markdown document, or ASCII tree text into a `FileNode` tree, then render it back to ASCII.
 
 ```ts

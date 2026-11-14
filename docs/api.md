@@ -263,7 +263,11 @@ This returns the usual `tree` and `annotations`, plus `matchedPaths` for baselin
 
 Capture `lines`, `syntax` and `commentTemplate` when editing begins, not from later settings. With a baseline, labels are treated as ASCII tree data rather than auto-detected JSON or Markdown; literal filename punctuation stays intact. Moving a row to another depth does not import its displayed size/date into the name. Ambiguous custom labels that represent different names are rejected. Metadata values are not reconstructed from display text; retain original metadata only where the host's identity policy allows it.
 
-The returned tree and annotation paths start at the parsed root name. `matchedPaths` uses the original baseline paths: for a focused root at `project/src`, parsed paths start at `src`, while matching baseline paths start at `project/src`. The host rebases a focused result before replacing its subtree. Renamed or moved paths are not inferred to be the same original node.
+The returned tree and annotation paths start at the parsed root name. `matchedPaths` uses the original baseline paths: for a focused root at `project/src`, parsed paths start at `src`, while matching baseline paths start at `project/src`. The host rebases a focused result before replacing its subtree. By default, renamed or moved paths are not inferred to be the same original node.
+
+Opt in with `detectRenames: true` to receive an optional `renames: { fromPath, toPath }[]`. Both paths use the full baseline scope, even for a focused root. Detection recognizes an explicitly rendered root rename, or one unmatched old/new child of the same parent in the same sibling position. Folder candidates must retain the same visible descendants; ambiguous changes, moves and kind replacements remain add/remove. This is a conservative text correspondence rule, not proof of filesystem identity. The default parser result and `matchedPaths` contract are unchanged, and `compareFileTrees` still compares exact paths.
+
+Use the returned pairs with existing path/annotation/visibility remapping helpers in your host. Hidden-node retention and user confirmation remain host decisions. No rename candidates are reported without baseline lines. This option is unreleased.
 
 Keep project identity, draft revision checks, focused-scope replacement, hidden-node retention, review and undo in the host. Use `parseAnnotatedAsciiTree` for annotation-only edits and `parseImportedTreeText` for arbitrary external text; their existing contracts are unchanged.
 
