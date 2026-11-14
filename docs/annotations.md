@@ -2,7 +2,7 @@
 
 `dir-tree` provides headless annotation utilities for directory trees. It can render annotations into ASCII output, parse edited annotations back from ASCII, normalize provider results, compute diffs, and apply accepted patches.
 
-The package does not call AI providers. Applications own model requests, tokens, quotas, storage, analytics, and notifications.
+Applications supply provider implementations for model requests or other annotation sources.
 
 ## Data Model
 
@@ -86,7 +86,7 @@ const patches = createTreeAnnotationPatchesFromProviderResult(
 
 `request.payload` contains normalized `language`, trimmed `prompt`, `nodes`, and the selected `scope`, `target`, and `overwrite` flags so provider boundaries can stay stateless.
 
-The core package does not know what `/api/annotations` is. That endpoint belongs to the host application.
+Replace `/api/annotations` with your endpoint; it must return an `AnnotationProviderResult`.
 
 ## Diff And Apply Workflow
 
@@ -110,6 +110,14 @@ const nextAnnotations = applyTreeAnnotationPatches(
 );
 ```
 
+Diff groups:
+
+- `added`: new comments for paths without existing comments
+- `updated`: changed comments for paths with existing comments
+- `skipped`: empty comments, unchanged comments, or paths outside the allowed scope
+
+`removeAnnotationDiffEntry` removes an individual entry before applying the remaining patches.
+
 ### Manual Edits And Batch Selection (2.1.0)
 
 Use `createManualAnnotationDiffResult` for user edits. Unlike provider suggestions, an empty manual comment removes an existing annotation. Unchanged edits are omitted and the last patch for each path wins. The host must limit edits to its intended scope before creating the diff.
@@ -125,7 +133,7 @@ const accepted = filterAnnotationDiffByExcludedPaths(diff, uncheckedPaths);
 const nextAnnotations = accepted.nextAnnotations;
 ```
 
-`uncheckedPaths` is a `ReadonlySet<string>`. Batch filtering retains skipped diagnostics and computes the resulting map once, rather than copying the map for every unchecked row. Checkbox state, review dialogs and undo remain host responsibilities. Existing provider diffs still skip empty comments instead of deleting annotations.
+`uncheckedPaths` is a `ReadonlySet<string>`. Batch filtering retains skipped diagnostics and computes the resulting map once. Provider diffs skip empty comments instead of deleting annotations.
 
 ## Retention After Re-read
 
@@ -145,14 +153,6 @@ Retention modes:
 
 - `reset`: drop all annotations
 - `matching-paths`: keep annotations whose paths exist in the new tree
-
-Diff groups:
-
-- `added`: new comments for paths without existing comments
-- `updated`: changed comments for paths with existing comments
-- `skipped`: empty comments, unchanged comments, or paths outside the allowed scope
-
-`removeAnnotationDiffEntry` can remove an individual diff entry before applying accepted patches.
 
 ## Annotated ASCII
 
@@ -249,26 +249,3 @@ The result separates:
 - `ignoredLineNumbers`
 
 Ignored lines are useful when the edited text contains comments that cannot be mapped back to a known tree path.
-
-## Boundary Rules
-
-Keep these responsibilities outside `dir-tree` core:
-
-- prompt UI
-- provider selection UI
-- real model requests
-- authentication and user tokens
-- quota and billing
-- toast notifications
-- analytics
-- storage
-- product-specific API routes
-
-Keep these responsibilities inside core:
-
-- provider payload construction
-- provider result normalization
-- path-scoped patch filtering
-- diff computation
-- patch application
-- annotated ASCII render and parse

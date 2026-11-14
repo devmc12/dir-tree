@@ -35,25 +35,19 @@
 
 ## 安装
 
-本文档介绍 **2.1.0**，这是基于 2.0 API 的增量更新，现有 2.0.0 调用方无需迁移。从 1.x 升级前，请阅读[迁移说明](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)，了解破坏性变更及新的用法。
-
-带渲染基线的文本解析、批量选择、目录树比较、手动注释审核和隐藏状态继承查询需要 **2.1.0 或更新版本**。接入前请查看 [API 可用性与职责边界](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#api-availability-and-boundaries)，了解职责及导入路径。无头库继续保持无 UI 依赖，项目保存、撤销历史和 AI 请求由宿主应用管理。
+在 Node.js 中使用时，需要 Node.js `>=18.18.1`。从 1.x 升级请阅读[迁移说明](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)。
 
 ```bash
 npm install @devmc12/dir-tree
 ```
 
-环境要求：
-
-- 安装后的库支持 Node.js `>=18.18.1`；仓库开发和测试使用 Node.js 22
-- TypeScript 用户可直接从包中导入类型
-- 核心与大部分适配器是同构的。Node.js 文件系统读取从 `@devmc12/dir-tree/node` 导出，浏览器专用 API 从 `@devmc12/dir-tree/browser` 导出
+包内提供 TypeScript 类型声明。文件系统路径使用 `/node` 入口，浏览器目录 API 使用 `/browser` 入口。
 
 ## 快速开始
 
-构造选项是默认值；每次 `read(options)` 只覆盖本次读取，不继承上一次的临时设置。`exclude: []` 明确清空默认排除项。节点只保存结构与元数据；复用适配器刷新，不从显示树恢复文件句柄。
+构造选项是默认值；`read(options)` 只覆盖本次读取。使用 `exclude: []` 清空默认排除项，保留适配器以便再次读取来源。
 
-固定数据源可以直接调用 `adapter.read()`；`FileSystemReader` 是用于持有、切换适配器的可选包装。不同来源支持的元数据、规则读取和刷新方式见[能力对照表](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md#read-options)；远程仓库和内存树不会读取 `.gitignore` 内容。
+可以直接调用 `adapter.read()`，也可以使用 `FileSystemReader` 持有、切换适配器：
 
 ```ts
 import { FileSystemReader, InMemoryFileTreeAdapter } from '@devmc12/dir-tree';
@@ -102,9 +96,7 @@ const tree = await reader.read({
 });
 ```
 
-单位是保留小数的毫秒，表示实际经过的时间。`prepareMs` 包含适配器内部的目录选择或远程仓库数据获取；`treeMs` 包含遍历、必要 I/O、过滤、构建、排序和索引；`totalMs` 是两阶段总耗时，从选项校验完成后开始，到调用回调之前结束。
-
-已传入的句柄、文件、ZIP、路径和内存树没有准备阶段（`prepareMs: 0`）。应用自行完成的选择、下载，以及适配器构造和页面渲染不计入这些时间。刷新只报告本次实际工作。未配置 `onTiming` 时不读取时钟；取消或来源读取失败不回调。请使用同步回调；同步抛出的异常会被忽略且不输出日志，已成功生成的目录树仍会正常返回。自定义适配器可自行支持这个约定，详见[计时参考](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#read-timing)。
+单位为毫秒，分别表示来源准备、目录树处理及本次读取的总耗时。计时范围和回调行为见[读取耗时参考](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#read-timing)。
 
 ## 数据源读取
 
@@ -127,7 +119,7 @@ const tree = await new FileSystemReader(
 
 ### Node.js 目录路径
 
-使用 `@devmc12/dir-tree/node` 的 `NodeFileSystemAdapter` 可以在 Node.js 中读取磁盘上的目录路径。它遵循同样的 `depth`、`exclude`、`useGitignore`、`readFileMeta` 与 `sort` 选项，并与浏览器入口隔离，打包器不会把 `node:fs` 带入客户端构建。
+使用 `@devmc12/dir-tree/node` 的 `NodeFileSystemAdapter` 读取磁盘上的目录路径。
 
 ```ts
 import { FileSystemReader } from '@devmc12/dir-tree';
@@ -163,28 +155,7 @@ const reader = new FileSystemReader(new LocalFileSystemAdapter());
 const tree = await reader.read({ readFileMeta: true });
 ```
 
-对于不支持原生目录选择器、但支持传统 `webkitdirectory` 选择器的浏览器，可使用 `@devmc12/dir-tree/browser` 中的 `openLegacyDirectoryPicker` 和 `createLegacyDirectorySkipMatcher`，将排除规则下沉到目录遍历中。
-
-```ts
-import { FileSystemReader } from '@devmc12/dir-tree';
-import {
-  createLegacyDirectorySkipMatcher,
-  LegacyDirectoryFilesAdapter,
-  openLegacyDirectoryPicker,
-} from '@devmc12/dir-tree/browser';
-
-const skipDirectory = createLegacyDirectorySkipMatcher(
-  ['node_modules', 'dist'],
-  false
-);
-const files = await openLegacyDirectoryPicker({
-  recursive: true,
-  ...(skipDirectory ? { skipDirectory } : {}),
-});
-const tree = await new FileSystemReader(
-  new LegacyDirectoryFilesAdapter(files, {})
-).read();
-```
+不支持原生目录选择器时，可使用[传统目录选择器适配器](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md#legacy-directory-files-adapter)。
 
 ### ZIP 文件
 
@@ -217,23 +188,9 @@ const tree = await new FileSystemReader(
 ).read({ depth: 4 });
 ```
 
-内置 fetch client 会读取 GitHub/GitLab 的全部分支分页，以及 GitLab 仓库树的全部分页。GitHub 仓库树仍优先使用单次递归请求；当 GitHub 将响应标记为 truncated 时，client 会丢弃不完整数据，改为逐级展开完整子树。大型仓库可能消耗较多 API 配额，建议传入 token，或使用指向较小子目录的 tree URL。
-
-远程仓库辅助函数从 `@devmc12/dir-tree/adapters` 导出，包括 URL 解析、ref/路径解析、分支解析、平台条目映射，以及 fetch client 创建。需要先加载默认分支与分支列表（例如填充分支下拉框）时，使用 `resolveRemoteRepositoryBranches`。
-
-```ts
-import { resolveRemoteRepositoryBranches } from '@devmc12/dir-tree/adapters';
-
-const { branches, defaultBranch, ref, path } =
-  await resolveRemoteRepositoryBranches({
-    input: 'https://github.com/example/project/tree/main/src',
-    token: 'github-token',
-  });
-```
+适配器会读取分页结果并补全被截断的 GitHub 目录树。大型仓库可能需要较多 API 请求，可使用 token 或更小的子目录 URL。分支查询、自定义 client 和错误说明见[远程仓库适配器](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md#remote-repository-adapter)。
 
 ## 解析与渲染
-
-尚未发布的 `parseEditedAsciiTree(..., { lines, detectRenames: true })` 可选项会返回明确的同父级重命名对应关系，路径使用原始完整作用范围。审核确认、隐藏节点保留、持久化和撤销仍由宿主负责；默认解析及 `compareFileTrees` 行为不变。详见 [API 文档](docs/api.md#ascii-rendering)。
 
 把导入的 JSON、XML、HTML、Markdown 列表、Markdown 文档或 ASCII 树文本解析为 `FileNode` 树，再渲染回 ASCII。
 
@@ -261,6 +218,8 @@ const ascii = renderAsciiTree(
 ```
 
 ## 编辑树
+
+编辑之前渲染的文本时，使用 [`parseEditedAsciiTree`](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#ascii-rendering) 并传入原始渲染基线。从 2.2.0 起，可通过 `detectRenames` 识别无歧义的根节点和同父级重命名。
 
 树操作都是纯函数。它们返回克隆后的树或结构化的编辑结果，不会修改宿主 UI 状态。
 
@@ -291,60 +250,27 @@ const json = createExportedFileTreeJson(tree, annotations, { visibility });
 const restored = parseImportedFileTreeJson(json);
 ```
 
-## 注释 Provider 边界
+## 注释
 
-本包不调用任何 AI 服务。它只定义 provider 请求载荷、provider 结果、补丁归一化与 diff 工具。模型调用、token、配额、存储、分析和通知都由你的应用负责。
+按节点路径保存注释，并渲染在目录树旁边：
 
 ```ts
+import { renderAsciiTreeLines } from '@devmc12/dir-tree/ascii';
 import {
   applyTreeAnnotationPatches,
-  createAnnotationDiffResult,
-  createAnnotationProviderRequest,
-  createTreeAnnotationPatchesFromProviderResult,
-  type AnnotationProvider,
-  type TreeAnnotationMap,
+  renderAnnotatedAsciiTree,
 } from '@devmc12/dir-tree/annotations';
 
-const provider: AnnotationProvider = {
-  async annotate(payload) {
-    return {
-      annotations: payload.nodes.map(node => ({
-        path: node.path,
-        comment: `描述 ${node.kind}`,
-      })),
-    };
-  },
-};
-
-const annotations: TreeAnnotationMap = {};
-const request = createAnnotationProviderRequest({ tree, annotations });
-const result = await provider.annotate(request.payload);
-const patches = createTreeAnnotationPatchesFromProviderResult(
-  result,
-  request.sourcePaths
-);
-const diff = createAnnotationDiffResult(
-  annotations,
-  patches,
-  request.allowedPaths
-);
-const nextAnnotations = applyTreeAnnotationPatches(
-  annotations,
-  diff.applyPatches
+const annotations = applyTreeAnnotationPatches({}, [
+  { path: 'project/src/index.ts', comment: '应用入口' },
+]);
+const output = renderAnnotatedAsciiTree(
+  renderAsciiTreeLines(tree),
+  annotations
 );
 ```
 
-当数据源被再次读取时，可只保留仍匹配新树路径的注释，或将其整体重置。
-
-```ts
-import { resolveTreeAnnotationsAfterRead } from '@devmc12/dir-tree/annotations';
-
-const retainedAnnotations = resolveTreeAnnotationsAfterRead(
-  nextTree,
-  annotations,
-  'matching-paths'
-);
-```
+需要生成注释时，实现 `AnnotationProvider`，再通过差异工具审核和应用结果。Provider 接入、对齐设置及重新读取后的注释保留见[注释文档](https://github.com/devmc12/dir-tree/blob/main/docs/annotations.md)。
 
 ## 项目结构
 
@@ -367,20 +293,15 @@ dir-tree/src
 
 ## Playground
 
-两个 playground 使用当前公开包 API。浏览器示例复用 2.1 的隐藏状态查询，不增加控件或改变导出行为。日常开发使用源码别名；打包验证还检查了去掉别名、安装真实打包产物的临时消费者。原生目录选择器权限和桌面目录拖入仍需人工浏览器确认。
-
-GitHub 仓库包含 `playground/`，是一个简单的 Vite React 示例，通过本地 Vite 与 TypeScript 别名演示公开的 `dir-tree` 导入。它只是一个最小参考实现，并不完整。完整的应用请见 [dir-tree.com](https://dir-tree.com/)。
+通过[浏览器 Playground](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md) 体验读取、编辑、注释和导出。在仓库根目录运行：
 
 ```bash
+npm install
+npm --prefix playground install
 npm run dev:playground
-npm run build:playground
 ```
 
-Node.js 示例(无浏览器)见 `playground-node/`，演示 `NodeFileSystemAdapter`、解析、注释、树编辑与 JSON 传输：
-
-```bash
-npm run start:playground-node
-```
+[Node Playground](https://github.com/devmc12/dir-tree/blob/main/playground-node/README.md) 演示文件系统读取、解析、注释、编辑及 JSON 导入导出。
 
 ## 文档
 
@@ -392,18 +313,4 @@ npm run start:playground-node
 - [Playground](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md)
 - [发布清单](https://github.com/devmc12/dir-tree/blob/main/docs/release.md)
 
-## 校验
-
-```bash
-npm run lint
-npm run typecheck
-npm run test
-npm run build
-npm run smoke:exports
-npm run smoke:install
-npm run pack:verify
-```
-
-`npm run smoke:install` 会打包本地包，将 tarball 安装到一个临时的消费者项目中，并验证 ESM、CommonJS 与 TypeScript 消费者导入。
-
-两个 playground 的类型检查、构建和 Node 示例需独立验收，并运行 `npm --prefix playground-node run test:migration`；见 [Playground 文档](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md)。
+开发环境和测试命令见[贡献指南](https://github.com/devmc12/dir-tree/blob/main/CONTRIBUTING.md)。

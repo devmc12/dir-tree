@@ -1,22 +1,19 @@
 # API Reference
 
-This reference describes the 2.1 API for `@devmc12/dir-tree`. The package is headless: all APIs in `src/` are UI-free and do not depend on React, Next.js, Zustand, toast libraries, analytics, or application i18n. See the [1.x to 2.0 migration guide](migrate-v2.md) when upgrading from 1.x; 2.0.0 consumers do not need migration for 2.1.0.
+Public APIs for reading, parsing, editing, annotating, and exporting directory trees. See the [migration guide](migrate-v2.md) when upgrading from 1.x.
 
-## API Availability And Boundaries
+## API Availability
 
-The helpers marked **2.1.0** add capabilities without removing or changing the signatures of the 2.0.0 API. The original JSON transfer format, external text import heuristics, provider empty-comment behavior and default non-selectable root remain unchanged. Consumers using these additions need a dependency and lockfile resolving to 2.1.0 or newer; an unchanged 2.0.0 lockfile cannot provide these exports.
+The following additions are backward-compatible with the 2.0 API:
 
-| Capability | Availability | Library responsibility | Host responsibility |
-| --- | --- | --- | --- |
-| Annotation retention and Markdown wrapping | 2.0.0 | Filter a map or format text | Decide when to retain annotations and where to copy/export |
-| Dropped source detection | 2.0.0, `/browser` only | Identify directory access, ZIP and tree documents | Project-file recognition, source switching, prompts and errors |
-| Batched selection and `rootSelectable` | 2.1.0 | Cascading selection and parent states | Shift anchors, visible rows and checkboxes |
-| `parseEditedAsciiTree` | 2.1.0 | Reverse rendered labels using the original baseline | Draft revisions, focused-scope replacement, hidden-node retention and undo |
-| `compareFileTrees` and `filterMatchingFileTreeState` | 2.1.0 | Compare structural data and filter path-and-kind matches | Decide which incoming state to merge and confirm source updates |
-| Manual annotation diff and batch exclusions | 2.1.0 | Normalize patches, calculate differences and filter them | Permitted scope, review selection and AI request lifecycle |
-| `createFileTreeHiddenLookup` | 2.1.0 | Resolve inherited output visibility | Muted row colors, layout and expansion |
-
-These functions do not own project storage, browser history, application versions or network requests. The playground consumes the same public helpers and keeps its existing controls and export behavior.
+| API | Since | Purpose |
+| --- | --- | --- |
+| `setTreeSelection` and `rootSelectable` | 2.1.0 | Batched cascading selection, optionally including the root |
+| `parseEditedAsciiTree` | 2.1.0 | Parse edited rendered text against its original baseline |
+| `detectRenames` and `EditedAsciiTreeRename` | 2.2.0 | Identify conservative root and same-parent renames |
+| `compareFileTrees` and `filterMatchingFileTreeState` | 2.1.0 | Compare trees and retain state for matching paths and kinds |
+| `createManualAnnotationDiffResult` and `filterAnnotationDiffByExcludedPaths` | 2.1.0 | Review manual annotation edits and filter accepted changes |
+| `createFileTreeHiddenLookup` | 2.1.0 | Resolve inherited output visibility |
 
 ## Import Paths
 
@@ -53,7 +50,7 @@ import {
 
 ### `FileNode`
 
-`FileNode` is the shared tree shape used across readers, parsers, renderers, transfers, annotations, and playground UI.
+`FileNode` is the shared tree shape used across readers, parsers, renderers, transfers, and annotations.
 
 ```ts
 interface FileNode {
@@ -265,11 +262,31 @@ Capture `lines`, `syntax` and `commentTemplate` when editing begins, not from la
 
 The returned tree and annotation paths start at the parsed root name. `matchedPaths` uses the original baseline paths: for a focused root at `project/src`, parsed paths start at `src`, while matching baseline paths start at `project/src`. The host rebases a focused result before replacing its subtree. By default, renamed or moved paths are not inferred to be the same original node.
 
-Opt in with `detectRenames: true` to receive an optional `renames: { fromPath, toPath }[]`. Both paths use the full baseline scope, even for a focused root. Detection recognizes an explicitly rendered root rename, or one unmatched old/new child of the same parent in the same sibling position. Folder candidates must retain the same visible descendants; ambiguous changes, moves and kind replacements remain add/remove. This is a conservative text correspondence rule, not proof of filesystem identity. The default parser result and `matchedPaths` contract are unchanged, and `compareFileTrees` still compares exact paths.
+From **2.2.0**, opt in with `detectRenames: true` to receive an optional `renames: EditedAsciiTreeRename[]`, where each pair contains `{ fromPath, toPath }`. Both paths use the full baseline scope, even for a focused root. Detection recognizes an explicitly rendered root rename, or one unmatched old/new child of the same parent in the same sibling position. Same-parent folder candidates must retain the same visible descendants; a root rename can accompany child edits. Ambiguous changes, moves and kind replacements do not produce rename pairs. This is a conservative text correspondence rule, not proof of filesystem identity. The default parser result and `matchedPaths` contract are unchanged, and `compareFileTrees` still compares exact paths.
 
-Use the returned pairs with existing path/annotation/visibility remapping helpers in your host. Hidden-node retention and user confirmation remain host decisions. No rename candidates are reported without baseline lines. This option is unreleased.
+```ts
+import { renderAsciiTreeLines } from '@devmc12/dir-tree/ascii';
+import { parseEditedAsciiTree } from '@devmc12/dir-tree/parser';
+import type { FileNode } from '@devmc12/dir-tree';
 
-Keep project identity, draft revision checks, focused-scope replacement, hidden-node retention, review and undo in the host. Use `parseAnnotatedAsciiTree` for annotation-only edits and `parseImportedTreeText` for arbitrary external text; their existing contracts are unchanged.
+const root: FileNode = {
+  name: 'src',
+  path: 'project/src',
+  kind: 'directory',
+  children: [{ name: 'main.ts', path: 'project/src/main.ts', kind: 'file' }],
+};
+const lines = renderAsciiTreeLines(root);
+const result = parseEditedAsciiTree('source\n└── main.ts', root, {
+  lines,
+  detectRenames: true,
+});
+// result.renames: [{ fromPath: 'project/src', toPath: 'project/source' }]
+// result.tree.path: 'source'; the host rebases it before replacing the focused scope
+```
+
+Use the returned pairs with existing path/annotation/visibility remapping helpers in your host. Hidden-node retention and user confirmation remain host decisions. With detection enabled but no baseline lines or no supported match, `renames` is an empty array. Without the option, it is absent. The parser never mutates the supplied tree or baseline lines.
+
+Use `parseAnnotatedAsciiTree` for annotation-only edits and `parseImportedTreeText` for arbitrary external text.
 
 A leading `.` in imported tree text is a display marker and uses the supplied fallback root name. Dot-mode rendered output includes a synthetic outer root; importing it preserves that displayed layer. Ordinary child names `.` and `..` remain invalid. These text formats use filename heuristics; use JSON transfer when exact node kinds, metadata, annotations, and visibility must be retained.
 
@@ -297,7 +314,7 @@ Use `createAsciiTreeOptionsFromConfig` when mapping UI or persisted settings to 
 
 ## Tree Operations
 
-`createFileTreeHiddenLookup(root, visibility)` computes a path-to-boolean map in one tree traversal. `hidden` omits the node and descendants; `children-hidden` omits descendants while keeping that folder visible. An ancestor rule cannot be undone by a descendant setting. Expanded rows and UI colors are host concerns, so a host may still style a visible folder with hidden children differently.
+`createFileTreeHiddenLookup(root, visibility)` computes a path-to-boolean map in one tree traversal. `hidden` omits the node and descendants; `children-hidden` omits descendants while keeping that folder visible. An ancestor rule cannot be undone by a descendant setting.
 
 `compareFileTrees(before, after)` returns `{ changes, matchingPaths }`. A change is `{ path, kind: 'added' | 'removed' | 'changed' }`; changed nodes include kind, size, modified time or retained sibling order changes. Insertions and removals are reported on the affected nodes, without duplicating them on every ancestor. Renames and moves are removals plus additions.
 
@@ -356,7 +373,7 @@ const parsed = parseImportedFileTreeJson(json);
 
 `createManualAnnotationDiffResult(annotations, patches)` uses the existing `AnnotationDiffResult` shape for manual edits. Empty comments remove an existing annotation, unchanged edits are omitted, and the last patch for each path wins. The host supplies the permitted scope. `createAnnotationDiffResult(annotations, patches, allowedPaths)` keeps its existing provider behavior: empty comments are skipped and scope checks still apply.
 
-Use `filterAnnotationDiffByExcludedPaths(diff, excludedPaths)` to apply a batch of checkbox exclusions. It filters actionable entries and computes the resulting annotation map once, while preserving read-only skipped diagnostics. Both helpers are pure and do not own an AI request, dialog selection or project state.
+Use `filterAnnotationDiffByExcludedPaths(diff, excludedPaths)` to filter actionable entries by excluded paths. It computes the resulting annotation map once and preserves skipped diagnostics.
 
 ```ts
 import {

@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 
 /**
  * Date: 2026-11-14
- * Desc: Executes the 2.1 helpers from isolated ESM and CommonJS package consumers
+ * Desc: Executes additive 2.x helpers from isolated ESM and CommonJS package consumers
  */
 
 const require = createRequire(import.meta.url);
@@ -12,6 +12,7 @@ for (const mode of ['esm', 'cjs']) {
     mode === 'esm' ? import(specifier) : require(specifier);
   const { renderAsciiTreeLines } = await load('@devmc12/dir-tree/ascii');
   const { parseEditedAsciiTree } = await load('@devmc12/dir-tree/parser');
+  const rootApi = await load('@devmc12/dir-tree');
   const { setTreeSelection } = await load('@devmc12/dir-tree/selection');
   const {
     compareFileTrees,
@@ -38,6 +39,26 @@ for (const mode of ['esm', 'cjs']) {
     { lines }
   );
   assert.equal(parsed.tree.children[0].path, 'root/b.ts', mode);
+  assert.equal(parsed.renames, undefined, mode);
+  // Both public entries must expose the opt-in result in each module format
+  for (const parse of [parseEditedAsciiTree, rootApi.parseEditedAsciiTree]) {
+    const renamed = parse(
+      lines
+        .map(line => line.text)
+        .join('\n')
+        .replace(/^root/u, 'renamed'),
+      tree,
+      { lines, detectRenames: true }
+    );
+    assert.deepEqual(
+      renamed.renames,
+      [{ fromPath: 'root', toPath: 'renamed' }],
+      mode
+    );
+    assert.equal(renamed.tree.children[0].name, 'a.ts', mode);
+    assert.equal(renamed.tree.children[0].kind, 'file', mode);
+    assert.equal(tree.path, 'root', mode);
+  }
   const comparison = compareFileTrees(tree, parsed.tree);
   assert.deepEqual(
     comparison.changes,

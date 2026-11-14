@@ -70,7 +70,7 @@ export const zh = {
     },
     showFullPath: '显示完整路径',
     showRoot: '显示根节点',
-    styleDescription: '调整文本树输出，不耦合 web 项目的业务上下文。',
+    styleDescription: '调整文本树布局和标签。',
     styleTitle: 'ASCII 样式',
     title: 'ASCII 输出',
     useMonospaceFont: '等宽输出',

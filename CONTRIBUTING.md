@@ -1,38 +1,51 @@
 # Contributing
 
-Thank you for helping improve Dir Tree.
-
 ## Development
 
-Use Node.js 22 for repository development and tests. The installed package supports Node.js 18.18.1 and newer. Install dependencies, then run the core checks:
+Use Node.js 22 for development. The installed library supports Node.js 18.18.1 and newer.
 
 ```bash
 npm install
-npm run typecheck
-npm run test
-npm run build
-npm run pack:dry
 ```
 
-Run `npm run smoke:install` after building to check a temporary npm installation. Set `DIR_TREE_CONSUMER_NODE` to an absolute Node.js 18.18.1 executable path to run those runtime checks at the minimum version while compiling the consumer types with the development version. See [Reader benchmarks](docs/benchmarks.md) for the fixed performance fixtures.
+## Tests And Validation Tools
 
-## Code standards
+| Location | Purpose | Command |
+| --- | --- | --- |
+| `test/**/*.test.ts` | Library unit and regression tests, using Vitest | `npm test` |
+| `scripts/release.test.mjs` | Release-script helper tests, using Node's test runner | `npm run test:release-script` |
+| `scripts/smoke-exports.mjs` | Built ESM and CommonJS exports | `npm run smoke:exports` |
+| `scripts/smoke-installed-package.mjs` and `scripts/fixtures/` | Temporary package installation, runtime imports, and TypeScript declarations | `npm run smoke:install` |
+| `scripts/verify-pack-boundary.mjs` | Files included in the npm tarball | `npm run pack:verify` |
+| `playground-node/test/` | Browser Playground read-option regressions, using Node's test runner | `npm --prefix playground-node run test:migration` |
 
-- Keep the root `src` package headless
-- Do not import React, Vite, Next.js, UI libraries, analytics, or playground code from `src`
-- Keep comments in English
-- Add tests for public behavior before exporting new APIs
-- Prefer small domain modules over broad utility buckets
+`npm test` runs only the library tests. The release-script tests and package checks are separate commands. The smoke and package checks require a successful build first.
 
-## Public API changes
+## Checks
 
-New public exports should include:
+From the repository root:
 
-- A stable name
-- Unit tests
-- README or API documentation
-- A package export if they belong to a subpath
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run test:release-script
+npm run build
+npm run smoke:exports
+npm run smoke:install
+npm run pack:verify
+```
 
-## Release checks
+For Playground changes, also run the checks in the [browser guide](docs/playground.md#checks) and [Node guide](playground-node/README.md#checks).
 
-Before publishing, follow `docs/release.md`. The release checklist verifies the headless package boundary, installed package smoke tests, and playground build.
+Set `DIR_TREE_CONSUMER_NODE` to an absolute Node.js 18.18.1 executable path to run installed-package runtime checks at the minimum supported version. Type checks still use the development toolchain. Performance fixtures and commands are in [Reader benchmarks](docs/benchmarks.md).
+
+## Changes
+
+- Keep library functions independent of application UI and state.
+- Place behavior in its domain module and document public inputs, outputs, and errors.
+- Write comments in English and preserve existing file creation dates.
+- Add regression tests for changed behavior and update the relevant API documentation.
+- Add public API changes to `CHANGELOG.md`; update package exports when introducing a subpath.
+
+Follow the [release guide](docs/release.md) when publishing.

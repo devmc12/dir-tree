@@ -1,10 +1,6 @@
 # Dir Tree Node Playground
 
-`playground-node/` is a small Node.js reference that demonstrates the headless `dir-tree` features that run outside the browser. It is not published to npm.
-
-It mirrors the browser `playground/` setup: it imports the public `dir-tree` entry points and maps them to the package source through TypeScript `paths`, so the code reads exactly like a real consumer.
-
-The Node example keeps DOM declarations in its source-alias development configuration because TypeScript checks shared library implementation helpers as well. The packed package is separately checked using only `ES2022` and Node types. Browser adapters and picker types belong to the `/browser` entry and are demonstrated by the browser playground.
+Node.js examples of reading, parsing, annotating, editing, and exporting directory trees.
 
 ## Run
 
@@ -14,28 +10,27 @@ From the repository root:
 npm install
 npm --prefix playground-node install
 npm run start:playground-node
+```
+
+## Examples
+
+`src/main.ts` runs five examples:
+
+1. Read a local directory with `NodeFileSystemAdapter`.
+2. Parse ASCII tree text with `parseImportedTreeText`.
+3. Generate sample annotations with a mock `AnnotationProvider` and render annotated ASCII.
+4. Create and rename nodes, and filter the tree by visibility.
+5. Export a tree as JSON and import it again.
+
+The examples import public `@devmc12/dir-tree` entry points, resolved to local library source through TypeScript paths.
+
+## Checks
+
+From the repository root:
+
+```bash
+npm run typecheck:playground-node
 npm --prefix playground-node run test:migration
 ```
 
-Or inside `playground-node/`:
-
-```bash
-npm install
-npm start
-```
-
-## Demos
-
-`src/main.ts` runs each demo in sequence:
-
-1. Read a real directory path with `NodeFileSystemAdapter` (`@devmc12/dir-tree/node`)
-2. Parse imported ASCII tree text with `parseImportedTreeText` (`@devmc12/dir-tree/parser`)
-3. Generate annotations through a mock `AnnotationProvider` and render annotated ASCII (`@devmc12/dir-tree/annotations`)
-4. Create, rename, and filter visibility of tree nodes (`@devmc12/dir-tree/tree`)
-5. Export and re-import a tree as JSON (`@devmc12/dir-tree/transfer`)
-
-## Scope
-
-This playground is intentionally minimal. It uses only Node built-ins plus `tsx` and TypeScript. Browser-only capabilities such as the directory picker and drag-and-drop source resolution live in `playground/`, not here.
-
-`test:migration` uses the existing `tsx` tool and Node's test runner to check that the browser playground's settings clear exclusions and do not retain temporary depth or hidden settings between reads. The test imports the sibling browser helper, so keep both playground folders together when checking a packed candidate in a temporary consumer directory. Remove TypeScript source paths and Vite aliases in that temporary copy to verify installed package resolution.
+`test:migration` checks the browser playground's read-option refresh behavior, including clearing exclusions and changing depth or hidden-file settings.

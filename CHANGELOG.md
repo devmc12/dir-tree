@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- Add opt-in `detectRenames` to edited ASCII parsing, reporting conservative root and same-parent rename pairs while preserving baseline node kinds; default parser and exact-path comparison contracts stay unchanged
+## 2.2.0
+
+- Add opt-in `detectRenames` to `parseEditedAsciiTree`, returning full-scope `{ fromPath, toPath }` pairs for rendered root renames and unambiguous same-parent renames
+- Preserve baseline file and directory kinds during rename detection, including extensionless files, empty folders and identical labels under different parents; retain new children when a file root becomes a directory
+- Keep ambiguous edits, cross-parent moves and kind replacements out of rename matching; default parsing, `matchedPaths`, exact-path tree comparison and JSON transfer contracts remain unchanged
 
 ## 2.1.0
 

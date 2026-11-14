@@ -38,12 +38,15 @@ interface ReadOptions {
   concurrency?: boolean | { limit?: number };
   mode?: 'read' | 'readwrite';
   onWarning?: (warning: ReadWarning) => void;
+  onTiming?: (timing: ReadTiming) => void;
 }
 ```
 
 Constructor options are defaults. Pass the current options to each read that needs them; a previous call's overrides do not persist. An explicit `exclude: []` clears the default exclude list.
 
 You can call `adapter.read()` directly. `FileSystemReader` is an optional delegating wrapper when an application wants to hold or switch the active adapter.
+
+Use `onTiming` to receive preparation, tree-processing, and total durations after a successful read. See [Read Timing](api.md#read-timing) for units and measurement boundaries.
 
 All built-in adapters support depth, hidden entries, excludes, and sorting. Source-specific capabilities differ:
 
@@ -263,6 +266,7 @@ Remote helper exports from `@devmc12/dir-tree/adapters` include:
 - `createRemoteRepositoryApiClient`
 - `parseRemoteRepositoryUrl`
 - `resolveRemoteRepositoryRefPath`
+- `resolveRemoteRepositoryBranches`
 - `mapRemoteRepositoryEntriesToFileTree`
 - `normalizeRemoteRepositoryPath`
 - `splitRemoteRepositoryPath`
@@ -286,4 +290,3 @@ When adding a custom adapter:
 - Preserve `kind: 'directory' | 'file'`
 - Respect `depth`, `exclude`, `showHidden`, and `sort` where possible
 - Attach `size`, `lastModified`, and `mimeType` only when available or requested
-- Keep UI state, notifications, analytics, and storage outside the adapter

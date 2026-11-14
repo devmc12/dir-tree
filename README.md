@@ -35,25 +35,19 @@
 
 ## Install
 
-This README documents **2.1.0**, an additive update to the 2.0 API. Existing 2.0.0 integrations need no migration. If you are upgrading from 1.x, read the [migration guide](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md) for breaking changes and updated usage.
-
-The edited rendered-text parser, batched selection, tree comparison, manual annotation review and inherited visibility helpers require **2.1.0 or newer**. See the [API availability and boundaries](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#api-availability-and-boundaries) for their responsibilities and import paths. The package remains UI-free; project storage, undo history and AI requests belong to the host application.
+Requires Node.js `>=18.18.1` when used in Node.js. Upgrading from 1.x? Follow the [migration guide](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md).
 
 ```bash
 npm install @devmc12/dir-tree
 ```
 
-Requirements:
-
-- Node.js `>=18.18.1` for the installed package. Use Node.js 22 for repository development and tests
-- TypeScript users can import types directly from the package
-- The core and most adapters are isomorphic. Node.js filesystem reading is exposed from `@devmc12/dir-tree/node`, and browser-only APIs are exposed from `@devmc12/dir-tree/browser`
+The package includes TypeScript declarations. Use `/node` for filesystem paths and `/browser` for browser directory APIs.
 
 ## Quick Start
 
-Constructor options are defaults; `read(options)` overrides only that call. Temporary settings do not persist, and `exclude: []` explicitly clears default exclusions. Nodes contain structure and metadata only; keep the adapter for refreshes instead of recovering source handles from the displayed tree.
+Constructor options are defaults; `read(options)` overrides only that call. Use `exclude: []` to clear default exclusions. Keep the adapter to read the source again.
 
-Call `adapter.read()` directly for a fixed source. `FileSystemReader` is an optional wrapper for holding or switching adapters. See the [source capability table](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md#read-options) for metadata, rule reading, and refresh differences; remote repositories and in-memory trees do not read `.gitignore` contents.
+Call `adapter.read()` directly, or use `FileSystemReader` to hold and switch adapters:
 
 ```ts
 import { FileSystemReader, InMemoryFileTreeAdapter } from '@devmc12/dir-tree';
@@ -102,9 +96,7 @@ const tree = await reader.read({
 });
 ```
 
-Durations are wall-clock milliseconds with fractional precision. `prepareMs` covers native directory selection or remote repository data acquisition inside the adapter. `treeMs` covers tree processing, including traversal, required I/O, filtering, sorting, and indexing. `totalMs` is their combined duration, measured after option validation and before the callback.
-
-Already supplied handles, files, ZIPs, paths, and in-memory trees have no preparation stage (`prepareMs: 0`). Selection or downloads performed by your application, adapter construction, and rendering are outside these measurements. Refreshes report only that read's work. No clock is read without `onTiming`; cancellation and source failures do not call it. Keep this callback synchronous; synchronous errors it throws are ignored without logging so the successful tree is still returned. Custom adapters can opt into this contract. See the [timing reference](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#read-timing) for details.
+Durations are milliseconds spent preparing the source, processing the tree, and completing the read. See [Read Timing](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#read-timing) for measurement boundaries and callback behavior.
 
 ## Read Sources
 
@@ -127,7 +119,7 @@ const tree = await new FileSystemReader(
 
 ### Node.js Directory Path
 
-Use `NodeFileSystemAdapter` from `@devmc12/dir-tree/node` to read a directory path from disk in Node.js. It honors the same `depth`, `exclude`, `useGitignore`, `readFileMeta`, and `sort` options, and is isolated from the browser entries so bundlers never pull `node:fs` into client builds.
+Use `NodeFileSystemAdapter` from `@devmc12/dir-tree/node` to read a directory path from disk.
 
 ```ts
 import { FileSystemReader } from '@devmc12/dir-tree';
@@ -163,6 +155,8 @@ const reader = new FileSystemReader(new LocalFileSystemAdapter());
 const tree = await reader.read({ readFileMeta: true });
 ```
 
+For browsers without the native picker, use the [legacy directory adapter](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md#legacy-directory-files-adapter).
+
 ### ZIP Files
 
 Use `ZipFileSystemAdapter` with `Blob`, `ArrayBuffer`, or `Uint8Array` input.
@@ -194,13 +188,9 @@ const tree = await new FileSystemReader(
 ).read({ depth: 4 });
 ```
 
-The built-in fetch client follows every GitHub/GitLab branch page and every GitLab repository-tree page. GitHub tree reads keep the single recursive request fast path; when GitHub marks that response as truncated, the client discards the partial data and expands the repository through complete subtrees instead. Large imports can consume significant API quota, so prefer a token or a narrower tree URL when available.
-
-Remote repository helper functions are exported from `@devmc12/dir-tree/adapters`, including URL parsing, ref/path resolution, branch resolution, provider entry mapping, and fetch client creation.
+The adapter follows pagination and recovers truncated GitHub trees. Large repositories can require many API requests; use a token or a narrower tree URL when needed. See [Remote Repository Adapter](https://github.com/devmc12/dir-tree/blob/main/docs/adapters.md#remote-repository-adapter) for branch helpers, custom clients, and errors.
 
 ## Parse And Render
-
-The unreleased `parseEditedAsciiTree(..., { lines, detectRenames: true })` option reports conservative same-parent rename pairs in full baseline coordinates. It leaves confirmation, hidden-node retention, persistence and undo to the host; default parsing and `compareFileTrees` remain unchanged. See [API documentation](docs/api.md#ascii-rendering).
 
 Parse imported JSON, XML, HTML, Markdown list, Markdown document, or ASCII tree text into a `FileNode` tree, then render it back to ASCII.
 
@@ -228,6 +218,8 @@ const ascii = renderAsciiTree(
 ```
 
 ## Edit Trees
+
+For edits to previously rendered text, use [`parseEditedAsciiTree`](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#ascii-rendering) with the original render baseline. Its optional `detectRenames` setting, available since 2.2.0, recognizes unambiguous root and same-parent renames.
 
 Tree operations are pure. They return cloned trees or structured edit results without mutating host UI state.
 
@@ -258,60 +250,27 @@ const json = createExportedFileTreeJson(tree, annotations, { visibility });
 const restored = parseImportedFileTreeJson(json);
 ```
 
-## Annotation Provider Boundary
+## Annotations
 
-The package does not call any AI service. It only defines provider payloads, provider results, patch normalization, and diff utilities. Your application owns model calls, tokens, quotas, storage, analytics, and notifications.
+Store comments by node path and render them beside the tree:
 
 ```ts
+import { renderAsciiTreeLines } from '@devmc12/dir-tree/ascii';
 import {
   applyTreeAnnotationPatches,
-  createAnnotationDiffResult,
-  createAnnotationProviderRequest,
-  createTreeAnnotationPatchesFromProviderResult,
-  type AnnotationProvider,
-  type TreeAnnotationMap,
+  renderAnnotatedAsciiTree,
 } from '@devmc12/dir-tree/annotations';
 
-const provider: AnnotationProvider = {
-  async annotate(payload) {
-    return {
-      annotations: payload.nodes.map(node => ({
-        path: node.path,
-        comment: `Describe ${node.kind}`,
-      })),
-    };
-  },
-};
-
-const annotations: TreeAnnotationMap = {};
-const request = createAnnotationProviderRequest({ tree, annotations });
-const result = await provider.annotate(request.payload);
-const patches = createTreeAnnotationPatchesFromProviderResult(
-  result,
-  request.sourcePaths
-);
-const diff = createAnnotationDiffResult(
-  annotations,
-  patches,
-  request.allowedPaths
-);
-const nextAnnotations = applyTreeAnnotationPatches(
-  annotations,
-  diff.applyPatches
+const annotations = applyTreeAnnotationPatches({}, [
+  { path: 'project/src/index.ts', comment: 'Application entry point' },
+]);
+const output = renderAnnotatedAsciiTree(
+  renderAsciiTreeLines(tree),
+  annotations
 );
 ```
 
-When a source is read again, keep only annotations that still match paths in the new tree, or reset them entirely.
-
-```ts
-import { resolveTreeAnnotationsAfterRead } from '@devmc12/dir-tree/annotations';
-
-const retainedAnnotations = resolveTreeAnnotationsAfterRead(
-  nextTree,
-  annotations,
-  'matching-paths'
-);
-```
+For generated annotations, implement `AnnotationProvider` and use the diff helpers to review and apply its results. See [Annotations](https://github.com/devmc12/dir-tree/blob/main/docs/annotations.md) for provider integration, layout options, and retention after re-reading.
 
 ## Project Structure
 
@@ -334,20 +293,15 @@ Public entry points are listed in `package.json#exports`. Common reader APIs are
 
 ## Playground
 
-The two playgrounds consume the current public package API. The browser playground reuses the 2.1 visibility lookup without adding controls or changing exports. Development uses source aliases; package verification also checks temporary consumers installed from the packed library without those aliases. Native picker permissions and desktop directory dragging still require manual browser checks.
-
-The GitHub repository includes `playground/`, a small Vite React example that demonstrates the public `@devmc12/dir-tree` imports through local Vite and TypeScript aliases. It is a minimal reference, not a full app. For the complete application, see [dir-tree.com](https://dir-tree.com/).
+Try reading, editing, annotating, and exporting trees in the [browser playground](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md). From a repository checkout:
 
 ```bash
+npm install
+npm --prefix playground install
 npm run dev:playground
-npm run build:playground
 ```
 
-For a Node.js example (no browser), see `playground-node/`, which demonstrates `NodeFileSystemAdapter`, parsing, annotations, tree editing, and JSON transfer:
-
-```bash
-npm run start:playground-node
-```
+The [Node playground](https://github.com/devmc12/dir-tree/blob/main/playground-node/README.md) demonstrates filesystem reading, parsing, annotations, editing, and JSON transfer.
 
 ## Documentation
 
@@ -359,18 +313,4 @@ npm run start:playground-node
 - [Playground](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md)
 - [Release checklist](https://github.com/devmc12/dir-tree/blob/main/docs/release.md)
 
-## Verification
-
-```bash
-npm run lint
-npm run typecheck
-npm run test
-npm run build
-npm run smoke:exports
-npm run smoke:install
-npm run pack:verify
-```
-
-`npm run smoke:install` packs the local package, installs the tarball into a temporary consumer project, and verifies ESM, CommonJS, and TypeScript consumer imports.
-
-Run the browser playground typecheck/build and Node example checks separately, including `npm --prefix playground-node run test:migration`; see the [Playground guide](https://github.com/devmc12/dir-tree/blob/main/docs/playground.md).
+See [Contributing](https://github.com/devmc12/dir-tree/blob/main/CONTRIBUTING.md) for development setup and test commands.

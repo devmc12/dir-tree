@@ -7,6 +7,7 @@ import {
   formatSize,
   getFileTreeMetadata,
   type FileNode,
+  type EditedAsciiTreeRename as RootEditedAsciiTreeRename,
   type ReadOptionsConfig,
 } from '@devmc12/dir-tree';
 import {
@@ -36,6 +37,7 @@ import { NodeFileSystemAdapter } from '@devmc12/dir-tree/node';
 import {
   parseEditedAsciiTree,
   parseImportedTreeText,
+  type EditedAsciiTreeRename,
 } from '@devmc12/dir-tree/parser';
 import {
   createTreeSelectionModel,
@@ -70,6 +72,13 @@ const retentionMode: TreeAnnotationRetentionMode = 'matching-paths';
 const reader = new FileSystemReader(new InMemoryFileTreeAdapter(tree));
 const parsed = parseImportedTreeText('project\n└── src', 'project');
 parseEditedAsciiTree('project/', tree, { lines: renderAsciiTreeLines(tree) });
+const renamed = parseEditedAsciiTree('renamed/', tree, {
+  lines: renderAsciiTreeLines(tree),
+  detectRenames: true,
+});
+const renamePairs: EditedAsciiTreeRename[] | undefined = renamed.renames;
+const rootRenamePairs: RootEditedAsciiTreeRename[] | undefined = renamePairs;
+void rootRenamePairs;
 setTreeSelection(
   {
     rootId: 'project',

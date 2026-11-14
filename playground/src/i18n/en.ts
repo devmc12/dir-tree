@@ -72,8 +72,7 @@ export const en = {
     },
     showFullPath: 'Full path labels',
     showRoot: 'Show root',
-    styleDescription:
-      'Tune the text tree without coupling the playground to the web app.',
+    styleDescription: 'Customize the text tree layout and labels.',
     styleTitle: 'ASCII style',
     title: 'ASCII output',
     useMonospaceFont: 'Monospace output',

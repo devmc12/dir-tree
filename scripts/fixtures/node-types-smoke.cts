@@ -22,6 +22,13 @@ const parsed: api.FileNode = parser.parseImportedTreeText(
   'project'
 ).tree;
 const prepared = tree.createPreparedFileTree(parsed);
+const renamed = parser.parseEditedAsciiTree('renamed', parsed, {
+  lines: api.renderAsciiTreeLines(parsed),
+  detectRenames: true,
+});
+const renamePairs: parser.EditedAsciiTreeRename[] | undefined = renamed.renames;
+const rootRenamePairs: api.EditedAsciiTreeRename[] | undefined = renamePairs;
+void rootRenamePairs;
 const zip: api.ReaderAdapter = new adapters.ZipFileSystemAdapter(
   new Uint8Array()
 );
