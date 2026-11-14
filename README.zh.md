@@ -37,6 +37,8 @@
 
 本文档介绍 **2.0 API**，这些 API 已随 **2.0.0** 发布到 npm。从 1.x 升级前，请阅读[迁移说明](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md)，了解破坏性变更及新的用法。
 
+仓库中还有处于 **Unreleased** 的增量能力：带渲染基线的文本解析、批量选择、目录树比较、手动注释审核和隐藏状态继承查询，尚未包含在 npm **2.0.0** 中。接入前请查看 [API 可用性与职责边界](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#unreleased-additions-and-boundaries)。这些新增能力不要求现有 2.0.0 调用方迁移。
+
 ```bash
 npm install @devmc12/dir-tree
 ```

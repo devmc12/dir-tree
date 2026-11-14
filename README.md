@@ -37,6 +37,8 @@
 
 This README documents the **2.0 API**, available in the published npm package starting with **2.0.0**. If you are upgrading from 1.x, read the [migration guide](https://github.com/devmc12/dir-tree/blob/main/docs/migrate-v2.md) for breaking changes and updated usage.
 
+The repository also contains additive **Unreleased** helpers for edited rendered text, batched selection, tree comparison, manual annotation review and inherited visibility. They are not included in npm **2.0.0** yet. See the [API availability and boundaries](https://github.com/devmc12/dir-tree/blob/main/docs/api.md#unreleased-additions-and-boundaries) before adopting them; existing 2.0.0 integrations do not need migration for these additions.
+
 ```bash
 npm install @devmc12/dir-tree
 ```

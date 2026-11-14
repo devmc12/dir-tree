@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Preserve 2.0.0 canonical selection states when descendants are not selectable
+- Keep rendered metadata separate from names when moving edited nodes across depths, preserve literal label punctuation, and index repeated labels/decorations instead of scanning the whole baseline for each row
+- Document unreleased API availability, host/library responsibilities and focused-root parsing paths
+
 - Add one-pass inherited visibility lookup and reuse it in the browser playground without changing its controls or exports
 
 - Add manual annotation diff and batched exclusion helpers while preserving provider empty-comment behavior

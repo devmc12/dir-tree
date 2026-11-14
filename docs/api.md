@@ -2,6 +2,22 @@
 
 This reference describes the 2.0 API for `@devmc12/dir-tree`. The package is headless: all APIs in `src/` are UI-free and do not depend on React, Next.js, Zustand, toast libraries, analytics, or application i18n. See the [1.x to 2.0 migration guide](migrate-v2.md) for changes to existing integrations.
 
+## Unreleased Additions And Boundaries
+
+The helpers marked **Unreleased** below are on the repository's main branch but are not in the published **2.0.0** package. They add capabilities without removing or changing the signatures of the 2.0.0 API. The original JSON transfer format, external text import heuristics, provider empty-comment behavior and default non-selectable root remain unchanged. Consumers of the new helpers must upgrade after the next library release; an unchanged 2.0.0 lockfile cannot provide these exports.
+
+| Capability | Availability | Library responsibility | Host responsibility |
+| --- | --- | --- | --- |
+| Annotation retention and Markdown wrapping | 2.0.0 | Filter a map or format text | Decide when to retain annotations and where to copy/export |
+| Dropped source detection | 2.0.0, `/browser` only | Identify directory access, ZIP and tree documents | Project-file recognition, source switching, prompts and errors |
+| Batched selection and `rootSelectable` | Unreleased | Cascading selection and parent states | Shift anchors, visible rows and checkboxes |
+| `parseEditedAsciiTree` | Unreleased | Reverse rendered labels using the original baseline | Draft revisions, focused-scope replacement, hidden-node retention and undo |
+| `compareFileTrees` and `filterMatchingFileTreeState` | Unreleased | Compare structural data and filter path-and-kind matches | Decide which incoming state to merge and confirm source updates |
+| Manual annotation diff and batch exclusions | Unreleased | Normalize patches, calculate differences and filter them | Permitted scope, review selection and AI request lifecycle |
+| `createFileTreeHiddenLookup` | Unreleased | Resolve inherited output visibility | Muted row colors, layout and expansion |
+
+These functions do not own project storage, browser history, application versions or network requests. The playground consumes the same public helpers and keeps its existing controls and export behavior.
+
 ## Import Paths
 
 | Import path | Status | Purpose |
@@ -234,6 +250,8 @@ Supported formats:
 For edits to text that your application rendered, use `parseEditedAsciiTree` from the parser entry with the **original** `renderAsciiTreeLines` output and syntax:
 
 ```ts
+import { parseEditedAsciiTree } from '@devmc12/dir-tree/parser';
+
 const parsed = parseEditedAsciiTree(editedText, renderedRoot, {
   lines: originalLines,
   syntax: originalRenderOptions,
@@ -242,6 +260,10 @@ const parsed = parseEditedAsciiTree(editedText, renderedRoot, {
 ```
 
 This returns the usual `tree` and `annotations`, plus `matchedPaths` for baseline nodes still recognized. It removes only evidenced display decorations (metadata, line numbers, connectors and synthetic root labels), retains known node kinds, and leaves real bracketed filenames intact. An unrecognizable edited custom label throws `FileTreeError` with its line number instead of guessing. Without baseline lines, parsing uses the ordinary text heuristics.
+
+Capture `lines`, `syntax` and `commentTemplate` when editing begins, not from later settings. With a baseline, labels are treated as ASCII tree data rather than auto-detected JSON or Markdown; literal filename punctuation stays intact. Moving a row to another depth does not import its displayed size/date into the name. Ambiguous custom labels that represent different names are rejected. Metadata values are not reconstructed from display text; retain original metadata only where the host's identity policy allows it.
+
+The returned tree and annotation paths start at the parsed root name. `matchedPaths` uses the original baseline paths: for a focused root at `project/src`, parsed paths start at `src`, while matching baseline paths start at `project/src`. The host rebases a focused result before replacing its subtree. Renamed or moved paths are not inferred to be the same original node.
 
 Keep project identity, draft revision checks, focused-scope replacement, hidden-node retention, review and undo in the host. Use `parseAnnotatedAsciiTree` for annotation-only edits and `parseImportedTreeText` for arbitrary external text; their existing contracts are unchanged.
 
@@ -382,3 +404,5 @@ Selection helpers provide a pure cascading checked/indeterminate/unchecked model
 `setTreeSelection(data, selectedIds, itemIds, checked)` checks or unchecks a complete range, including collapsed descendants. Overlapping subtrees are visited once. Parent states are derived from the remaining selected leaves, so unchecking a child cannot be undone by an already selected ancestor. Keep Shift anchors and visible row ordering in the application.
 
 The root is a non-selectable container by default. Set `data.rootSelectable: true` for a real root that should participate in selection. Reuse the same `items` index between interactions; the helpers do not mutate it.
+
+`selectableIds`, when supplied, limits eligible IDs. A parent with no selected descendants remains unchecked even if it was requested for selection; it must not display a mixed state when the canonical `selectedIds` is empty. A non-selectable branch is not implicitly expanded by selecting it. Pass eligible descendant IDs explicitly when that behavior is wanted.
