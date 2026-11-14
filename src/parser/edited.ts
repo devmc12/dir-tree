@@ -3,6 +3,11 @@ import { ASCII_TREE_CONNECTOR_PRESETS } from '../ascii/types';
 import type { FileNode } from '../reader/types';
 import { FileTreeError } from '../reader/errors';
 import { parseImportedTreeText } from './imported';
+import { extractImportedTreeComment } from './comments';
+import {
+  buildImportedTreeFromEntries,
+  type ImportedTreeEntry,
+} from './entries';
 import type { ParsedImportedTree } from './types';
 
 /**
@@ -24,6 +29,12 @@ export interface ParsedEditedAsciiTree extends ParsedImportedTree {
   matchedPaths: Set<string>;
 }
 
+interface RenderedLabel {
+  line: AsciiTreeLine;
+  paths: string[];
+  ambiguous: boolean;
+}
+
 /**
  * Removes only display decorations evidenced by the original rendered lines
  * @param text Edited text, including comments and structural changes
@@ -37,119 +48,140 @@ export function parseEditedAsciiTree(
   root: Pick<FileNode, 'name' | 'path'>,
   options: EditedAsciiTreeParseOptions = {}
 ): ParsedEditedAsciiTree {
+  if (!options.lines) {
+    return {
+      ...parseImportedTreeText(text, root.name, {
+        format: 'ascii',
+        ...(options.commentTemplate === undefined
+          ? {}
+          : { commentTemplate: options.commentTemplate }),
+      }),
+      matchedPaths: new Set(),
+    };
+  }
   // Strip generated line numbers only when the baseline provides evidence for them
   const numbered =
     options.lines?.some(
       line =>
         /^\s*\d+\s\|\s/u.test(line.text) &&
-        !line.text.startsWith(line.node.name)
+        normalizeDraftPrefix(line.text, options.syntax, true).includes(
+          line.node.name
+        )
     ) ?? false;
-  const normalize = (text: string, knownPaths: Set<string>): string => {
-    const lines = (options.lines ?? [])
-      .map(line => ({
-        line,
-        prefix: normalizeDraftPrefix(line.text, options.syntax, numbered),
-      }))
-      .sort((a, b) => b.prefix.length - a.prefix.length);
-    const byPrefix = new Map<string, (typeof lines)[number]>();
-    const pathsByPrefix = new Map<string, string[]>();
-    for (const entry of lines) {
-      const { line, prefix } = entry;
-      if (!byPrefix.has(prefix)) byPrefix.set(prefix, entry);
-      const paths = pathsByPrefix.get(prefix) ?? [];
-      paths.push(line.path);
-      pathsByPrefix.set(prefix, paths);
+  const byLabel = new Map<string, RenderedLabel>();
+  // Index literal decorations independently of depth; moved rows keep their display metadata
+  const decorations = new Map<string, Set<string>>();
+  let hasOpaqueLabels = false;
+  for (const line of options.lines) {
+    const { label } = splitNormalizedLine(
+      normalizeDraftPrefix(line.text, options.syntax, numbered)
+    );
+    const matching = byLabel.get(label) ?? {
+      line,
+      paths: [],
+      ambiguous: false,
+    };
+    matching.paths.push(line.path);
+    matching.ambiguous ||= matching.line.node.name !== line.node.name;
+    byLabel.set(label, matching);
+    if (line.isSynthetic) continue;
+    const nameAt = label.lastIndexOf(line.node.name);
+    if (nameAt < 0) {
+      hasOpaqueLabels = true;
+      continue;
     }
-    const decorations = lines.flatMap(({ line, prefix }) => {
-      if (line.isSynthetic) return [];
-      const nameAt = prefix.lastIndexOf(line.node.name);
-      if (nameAt < 0) return [];
-      const treePrefix = prefix.match(/^(?: {4})*(?:├── )?/u)?.[0] ?? '';
-      const before = prefix.slice(treePrefix.length, nameAt);
-      const after = prefix.slice(nameAt + line.node.name.length);
-      if (!before && (!after || after === '/')) return [];
-      const escape = (value: string) =>
-        value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return [
-        {
-          pattern: new RegExp(
-            `^${escape(treePrefix + before)}(.+?)${escape(after)}(?=\\s|$)(.*)$`,
-            'u'
-          ),
-          treePrefix,
-          slash: after.startsWith('/') ? '/' : '',
-        },
-      ];
-    });
-    const hasOpaqueLabels = lines.some(
-      ({ line, prefix }) =>
-        !line.isSynthetic && !prefix.includes(line.node.name)
-    );
-    const syntheticRoot = options.lines?.some(
-      line => line.isSynthetic && line.isRoot
-    );
-    const matchedPrefixes = new Set<string>();
-    const scopeDepth = root.path.split('/').length;
-    const normalizedLines = text.split(/\r?\n/u).map((raw, index) => {
-      const normalized = normalizeDraftPrefix(raw, options.syntax, numbered);
-      let candidate = byPrefix.get(normalized);
-      // Match the longest baseline prefix without scanning every node for every line
-      for (let end = normalized.length - 1; !candidate && end >= 0; end--) {
-        if (/\s/u.test(normalized[end]!))
-          candidate = byPrefix.get(normalized.slice(0, end));
-      }
-      if (!candidate) {
-        if (normalized.trim() && hasOpaqueLabels) {
-          throw new FileTreeError(
-            'invalid_tree',
-            'Cannot reverse an edited custom node label without a recognizable filename',
-            { line: index + 1 }
-          );
-        }
-        const decoration = decorations.find(item =>
-          item.pattern.test(normalized)
-        );
-        const match = decoration?.pattern.exec(normalized);
-        const undecorated =
-          decoration && match
-            ? decoration.treePrefix + match[1] + decoration.slash + match[2]
-            : normalized;
-        if (syntheticRoot) {
-          if (undecorated.startsWith('    ')) return undecorated.slice(4);
-          if (undecorated.startsWith('├── ')) return undecorated.slice(4);
-        }
-        return undecorated;
-      }
-      const { line: match } = candidate;
-      if (match.isSynthetic) return '';
-      // Identical labels in separate folders share a prefix but not a node identity
-      if (!matchedPrefixes.has(candidate.prefix)) {
-        for (const path of pathsByPrefix.get(candidate.prefix)!)
-          knownPaths.add(path);
-        matchedPrefixes.add(candidate.prefix);
-      }
-      const depth = match.path.split('/').length - scopeDepth;
-      const prefix =
-        depth === 0 ? '' : '    '.repeat(Math.max(0, depth - 1)) + '├── ';
-      return (
-        prefix +
-        match.node.name +
-        (match.node.kind === 'directory' ? '/' : '') +
-        normalized.slice(candidate.prefix.length)
-      );
-    });
-    if (options.lines && !options.lines.some(line => line.path === root.path))
-      normalizedLines.unshift(root.name + '/');
-    return normalizedLines.join('\n');
-  };
-  const matchedPaths = new Set<string>();
-  const parsed = parseImportedTreeText(
-    normalize(text, matchedPaths),
-    root.name,
-    options.commentTemplate === undefined
-      ? {}
-      : { commentTemplate: options.commentTemplate }
+    const before = label.slice(0, nameAt);
+    const after = label.slice(nameAt + line.node.name.length);
+    if (!before && (!after || after === '/')) continue;
+    const suffixes = decorations.get(before) ?? new Set<string>();
+    suffixes.add(after);
+    decorations.set(before, suffixes);
+  }
+  const syntheticRoot = options.lines.some(
+    line => line.isSynthetic && line.isRoot
   );
+  const matchedPaths = new Set<string>();
+  const matchedLabels = new Set<string>();
+  const entries: ImportedTreeEntry[] = [];
+  for (const [index, raw] of text.split(/\r?\n/u).entries()) {
+    const { label, level } = splitNormalizedLine(
+      normalizeDraftPrefix(raw, options.syntax, numbered)
+    );
+    if (!label.trim()) continue;
+    let matched: RenderedLabel | undefined;
+    let recognizedLabel = '';
+    let comment: string | null = null;
+    // Match the longest label followed only by whitespace or a recognizable annotation
+    for (let end = label.length; end > 0; end--) {
+      if (end < label.length && !/\s/u.test(label[end]!)) continue;
+      const prefix = label.slice(0, end);
+      const found = byLabel.get(prefix);
+      if (!found) continue;
+      const suffix = extractImportedTreeComment(
+        'node' + label.slice(end),
+        options.commentTemplate
+      );
+      if (suffix.text.trim() !== 'node') continue;
+      matched = found;
+      recognizedLabel = prefix;
+      comment = suffix.comment;
+      break;
+    }
+    const candidate = matched?.line;
+    if (candidate?.isSynthetic) continue;
+    let nodeLabel: string;
+    let name: string;
+    if (candidate) {
+      if (matched!.ambiguous) {
+        throw new FileTreeError(
+          'invalid_tree',
+          'Rendered label identifies more than one node name',
+          { line: index + 1 }
+        );
+      }
+      if (!matchedLabels.has(recognizedLabel)) {
+        for (const path of matched!.paths) matchedPaths.add(path);
+        matchedLabels.add(recognizedLabel);
+      }
+      name = candidate.node.name;
+      nodeLabel = name + (candidate.node.kind === 'directory' ? '/' : '');
+    } else {
+      if (/^(?:```[\w-]*|[\s│|]+)$/u.test(label.trim())) continue;
+      if (hasOpaqueLabels) {
+        throw new FileTreeError(
+          'invalid_tree',
+          'Cannot reverse an edited custom node label without a recognizable filename',
+          { line: index + 1 }
+        );
+      }
+      const extracted = extractImportedTreeComment(
+        label,
+        options.commentTemplate
+      );
+      nodeLabel = removeRenderedDecoration(
+        extracted.text.trimEnd(),
+        decorations
+      );
+      name = nodeLabel.replace(/\/+$/u, '').trim();
+      comment = extracted.comment;
+    }
+    entries.push({
+      name,
+      label: nodeLabel,
+      comment,
+      level: level - (syntheticRoot ? 1 : 0),
+      line: index + 1,
+    });
+  }
+  if (!options.lines.some(line => line.path === root.path)) {
+    entries.unshift({
+      name: root.name,
+      label: root.name + '/',
+      comment: null,
+      level: 0,
+    });
+  }
+  const parsed = buildImportedTreeFromEntries(entries, root.name);
   const originals = new Map(
     (options.lines ?? []).map(line => [line.path, line.node])
   );
@@ -174,6 +206,29 @@ export function parseEditedAsciiTree(
   }
   const tree = retainKnownKind(parsed.tree);
   return { ...parsed, tree, matchedPaths: retainedPaths };
+}
+
+/** Splits only the canonical leading connector, never connector-like text inside a name */
+function splitNormalizedLine(text: string): { label: string; level: number } {
+  const prefix = text.match(/^(?: {4})*(?:├── )?/u)![0];
+  return { label: text.slice(prefix.length), level: prefix.length / 4 };
+}
+
+/** Finds evidenced literal decorations by label length rather than scanning every baseline node */
+function removeRenderedDecoration(
+  label: string,
+  decorations: Map<string, Set<string>>
+): string {
+  for (let start = label.length - 1; start >= 0; start--) {
+    const suffixes = decorations.get(label.slice(0, start));
+    if (!suffixes) continue;
+    for (let end = start + 1; end <= label.length; end++) {
+      const suffix = label.slice(end);
+      if (suffixes.has(suffix))
+        return label.slice(start, end) + (suffix.startsWith('/') ? '/' : '');
+    }
+  }
+  return label;
 }
 
 /** Normalizes rendered connectors and indentation without reading current UI settings */

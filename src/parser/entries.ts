@@ -14,6 +14,8 @@ import { appendImportedTreeAnnotation } from '../annotations/imported';
 export interface ImportedTreeEntry {
   comment: string | null;
   label: string;
+  /** Literal rendered node name, already separated from display syntax */
+  name?: string;
   level: number;
   line?: number;
 }
@@ -40,10 +42,9 @@ export function buildImportedTreeFromEntries(
     fallbackRootName
   );
   const rootEntry = normalizedEntries[0];
-  const rootLabel = sanitizeNodeName(
-    rootEntry?.label ?? fallbackRootName,
-    fallbackRootName
-  );
+  const rootLabel =
+    rootEntry?.name ??
+    sanitizeNodeName(rootEntry?.label ?? fallbackRootName, fallbackRootName);
   // A leading dot denotes the displayed root, not a literal child name
   const rootName =
     rootLabel === '.'
@@ -76,7 +77,7 @@ export function buildImportedTreeFromEntries(
 
     const parent = stack[stack.length - 1]!.node;
     const nextEntry = childEntries[index + 1];
-    const name = sanitizeNodeName(entry.label, fallbackRootName);
+    const name = entry.name ?? sanitizeNodeName(entry.label, fallbackRootName);
     const kind: FileNode['kind'] =
       entry.label.endsWith('/') || (nextEntry && nextEntry.level > entry.level)
         ? 'directory'

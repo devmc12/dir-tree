@@ -39,6 +39,74 @@ const tree: FileNode = {
 };
 
 describe('edited ASCII parsing', () => {
+  it.each(['move', 'rename'])(
+    'removes metadata when a node changes depth: %s',
+    edit => {
+      const lines = renderAsciiTreeLines(tree, { showFileSize: true });
+      const text = lines
+        .map(line => line.text)
+        .join('\n')
+        .replace(/^[^\n]*entry\.ts[^\n]*\n/mu, '')
+        .replace(
+          '    └── app.ts',
+          `    ├── app.ts\n    └── ${edit === 'rename' ? 'moved.ts' : 'entry.ts'} (42B)`
+        );
+      const parsed = parseEditedAsciiTree(text, tree, { lines });
+      expect(Object.keys(getFileTreeItems(parsed.tree))).toContain(
+        `root/src/${edit === 'rename' ? 'moved.ts' : 'entry.ts'}`
+      );
+      expect(
+        Object.keys(getFileTreeItems(parsed.tree)).some(path =>
+          path.endsWith('(42B)')
+        )
+      ).toBe(false);
+    }
+  );
+
+  it.each(['[project]', '{project}', '1 | root'])(
+    'preserves literal root names: %s',
+    name => {
+      const original: FileNode = {
+        name,
+        path: name,
+        kind: 'directory',
+        children: [{ name: 'a.ts', path: `${name}/a.ts`, kind: 'file' }],
+      };
+      const lines = renderAsciiTreeLines(original);
+      const parsed = parseEditedAsciiTree(
+        lines
+          .map(line => line.text)
+          .join('\n')
+          .replace('a.ts', 'b.ts'),
+        original,
+        { lines }
+      );
+      expect(parsed.tree.name).toBe(name);
+      expect(parsed.tree.children?.[0]?.path).toBe(`${name}/b.ts`);
+    }
+  );
+
+  it('keeps baseline punctuation in labels separate from structural syntax and comments', () => {
+    const names = ['part ├── name.txt', 'notes  # draft.txt', '1 | note.txt'];
+    const original: FileNode = {
+      name: 'root',
+      path: 'root',
+      kind: 'directory',
+      children: names.map(name => ({
+        name,
+        path: `root/${name}`,
+        kind: 'file',
+      })),
+    };
+    const lines = renderAsciiTreeLines(original);
+    const text = lines.map(line => line.text).join('\n') + '\n└── added.ts';
+    const parsed = parseEditedAsciiTree(text, original, { lines });
+    expect(parsed.tree.children?.map(node => node.name)).toEqual([
+      ...names,
+      'added.ts',
+    ]);
+  });
+
   const options: AsciiTreeOptions[] = [
     ...ASCII_TREE_METADATA_PRESET_STYLES.map(metadataStyle => ({
       metadataStyle,
@@ -170,5 +238,36 @@ describe('edited ASCII parsing', () => {
     const items = getFileTreeItems(result.tree);
     expect(items['root/a/LICENSE']?.data.kind).toBe('file');
     expect(items['root/b/LICENSE']?.data.kind).toBe('file');
+  });
+
+  it('indexes repeated labels once instead of rescanning all identical filenames per row', () => {
+    const nested: FileNode = {
+      name: 'root',
+      path: 'root',
+      kind: 'directory',
+      children: Array.from({ length: 1000 }, (_, index) => ({
+        name: `dir-${index}`,
+        path: `root/dir-${index}`,
+        kind: 'directory',
+        children: [
+          { name: 'LICENSE', path: `root/dir-${index}/LICENSE`, kind: 'file' },
+        ],
+      })),
+    };
+    let reads = 0;
+    const lines = renderAsciiTreeLines(nested).map(line => ({
+      ...line,
+      get node() {
+        reads++;
+        return line.node;
+      },
+    }));
+    const parsed = parseEditedAsciiTree(
+      lines.map(line => line.text).join('\n'),
+      nested,
+      { lines }
+    );
+    expect(Object.keys(getFileTreeItems(parsed.tree))).toHaveLength(2001);
+    expect(reads).toBeLessThan(lines.length * 30);
   });
 });
